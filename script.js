@@ -1707,6 +1707,80 @@ const AdminSettings = {
 };
 
 /* ============================================================
+   19. DRAG-REPOSISI KARTU (Overview: KPI / Chart / Widget)
+   ============================================================ */
+const DragReorder = {
+  STORAGE_PREFIX: 'mgr_card_order_',
+  draggedEl: null,
+  groups: {}, // groupKey -> { container, defaultOrder }
+
+  /** Panggil sekali per grup saat init — mengembalikan urutan tersimpan (kalau ada) lalu memasang drag handler */
+  init(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const groupKey = container.dataset.draggableGroup || containerId;
+
+    const defaultOrder = Array.from(container.children).map((c) => c.dataset.cardId).filter(Boolean);
+    this.groups[groupKey] = { container, defaultOrder };
+
+    this.applyStoredOrder(container, groupKey);
+
+    container.querySelectorAll(':scope > [draggable="true"]').forEach((card) => this.bindCard(card, container, groupKey));
+  },
+
+  applyStoredOrder(container, groupKey) {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(this.STORAGE_PREFIX + groupKey)); } catch (e) { saved = null; }
+    if (!saved || !Array.isArray(saved)) return;
+
+    const byId = {};
+    Array.from(container.children).forEach((c) => { if (c.dataset.cardId) byId[c.dataset.cardId] = c; });
+
+    const ordered = [];
+    saved.forEach((id) => { if (byId[id]) { ordered.push(byId[id]); delete byId[id]; } });
+    // Kartu baru yang belum ada di urutan tersimpan (mis. ditambahkan setelah terakhir disusun) taruh di akhir
+    Object.values(byId).forEach((c) => ordered.push(c));
+    ordered.forEach((c) => container.appendChild(c));
+  },
+
+  saveOrder(container, groupKey) {
+    const order = Array.from(container.children).map((c) => c.dataset.cardId).filter(Boolean);
+    try { localStorage.setItem(this.STORAGE_PREFIX + groupKey, JSON.stringify(order)); } catch (e) { /* abaikan kalau storage penuh */ }
+  },
+
+  /** Kembalikan SEMUA grup (KPI/Chart/Widget) ke urutan bawaan & hapus penyimpanannya */
+  resetAll() {
+    Object.keys(this.groups).forEach((groupKey) => {
+      const { container, defaultOrder } = this.groups[groupKey];
+      try { localStorage.removeItem(this.STORAGE_PREFIX + groupKey); } catch (e) { /* abaikan */ }
+
+      const byId = {};
+      Array.from(container.children).forEach((c) => { if (c.dataset.cardId) byId[c.dataset.cardId] = c; });
+      defaultOrder.forEach((id) => { if (byId[id]) container.appendChild(byId[id]); });
+    });
+  },
+
+  bindCard(card, container, groupKey) {
+    card.addEventListener('dragstart', () => {
+      this.draggedEl = card;
+      setTimeout(() => card.classList.add('dragging'), 0);
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      this.draggedEl = null;
+      this.saveOrder(container, groupKey);
+    });
+    card.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!this.draggedEl || this.draggedEl === card) return;
+      const rect = card.getBoundingClientRect();
+      const insertBefore = (e.clientX - rect.left) < rect.width / 2;
+      container.insertBefore(this.draggedEl, insertBefore ? card : card.nextSibling);
+    });
+  }
+};
+
+/* ============================================================
    20. INIT
    ============================================================ */
 function initApp() {
@@ -1719,6 +1793,13 @@ function initApp() {
   DetailModal.init();
   LogPage.init();
   BusinessSwitcher.init();
+  DragReorder.init('kpi-grid');
+  DragReorder.init('chart-grid');
+  DragReorder.init('widget-grid');
+  document.getElementById('btn-reset-card-order').addEventListener('click', () => {
+    DragReorder.resetAll();
+    Snackbar.show('Susunan kartu dikembalikan ke default', 'success');
+  });
 
   document.getElementById('tab-btn-admin').hidden = false; // login sudah memastikan role manager/super_admin
 

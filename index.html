@@ -139,40 +139,48 @@
 
         <div id="overview-content" hidden>
 
-          <p id="overview-updated-at" class="detail-meta-text" style="margin-bottom: var(--space-sm);"></p>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--space-sm); flex-wrap:wrap; gap: var(--space-sm);">
+            <p id="overview-updated-at" class="detail-meta-text" style="margin-bottom:0;"></p>
+            <button id="btn-reset-card-order" class="secondary-button ripple no-print" type="button">Reset Susunan Kartu</button>
+          </div>
 
-          <div class="kpi-grid">
-            <div class="kpi-card glow-primary">
+          <div id="kpi-grid" class="kpi-grid" data-draggable-group="kpi">
+            <div class="kpi-card glow-primary" draggable="true" data-card-id="kpi-total-projects">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <span class="kpi-label">Total Project</span>
               <span id="kpi-total-projects" class="kpi-value">0</span>
             </div>
-            <div class="kpi-card glow-success">
+            <div class="kpi-card glow-success" draggable="true" data-card-id="kpi-pipeline-value">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <span class="kpi-label">Nilai Pipeline Aktif</span>
               <span id="kpi-pipeline-value" class="kpi-value">Rp 0</span>
             </div>
-            <div class="kpi-card glow-warning">
+            <div class="kpi-card glow-warning" draggable="true" data-card-id="kpi-won-value">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <span class="kpi-label">Nilai Deal Won</span>
               <span id="kpi-won-value" class="kpi-value">Rp 0</span>
             </div>
-            <div class="kpi-card glow-primary">
+            <div class="kpi-card glow-primary" draggable="true" data-card-id="kpi-win-rate">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <span class="kpi-label">Win Rate</span>
               <span id="kpi-win-rate" class="kpi-value">0%</span>
             </div>
-            <div class="kpi-card glow-danger">
+            <div class="kpi-card glow-danger" draggable="true" data-card-id="kpi-total-activities">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <span class="kpi-label">Total Aktivitas (Periode)</span>
               <span id="kpi-total-activities" class="kpi-value">0</span>
             </div>
           </div>
 
-          <div class="chart-row">
-            <div class="chart-card full-width">
+          <div id="chart-grid" class="chart-grid" data-draggable-group="charts">
+            <div class="chart-card full-width" draggable="true" data-card-id="chart-funnel-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Funnel Pipeline</h3>
               <canvas id="chart-funnel"></canvas>
             </div>
-          </div>
 
-          <div class="chart-row two-col">
-            <div class="chart-card">
+            <div class="chart-card" draggable="true" data-card-id="chart-trend-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <div class="chart-card-header">
                 <h3 class="chart-title">Tren Aktivitas</h3>
                 <div id="trend-granularity-chips" class="chip-group">
@@ -183,44 +191,51 @@
               </div>
               <canvas id="chart-trend"></canvas>
             </div>
-            <div class="chart-card">
+
+            <div class="chart-card" draggable="true" data-card-id="chart-statuspie-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Status Project</h3>
               <canvas id="chart-status-pie"></canvas>
             </div>
-          </div>
 
-          <div class="chart-row two-col">
-            <div class="chart-card">
+            <div class="chart-card" draggable="true" data-card-id="chart-salesranking-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Ranking Sales (Aktivitas)</h3>
               <canvas id="chart-sales-ranking"></canvas>
             </div>
-            <div class="chart-card">
+
+            <div class="chart-card" draggable="true" data-card-id="chart-lostreasons-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Alasan Lost</h3>
               <canvas id="chart-lost-reasons"></canvas>
             </div>
-          </div>
 
-          <div class="chart-row two-col">
-            <div class="chart-card">
+            <div class="chart-card" draggable="true" data-card-id="chart-leadsource-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Sumber Leads</h3>
               <canvas id="chart-lead-source"></canvas>
             </div>
-            <div class="chart-card">
+
+            <div class="chart-card" draggable="true" data-card-id="chart-producttype-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Jenis Produk</h3>
               <canvas id="chart-product-type"></canvas>
             </div>
           </div>
 
-          <div class="widget-row">
-            <div class="widget-card">
+          <div id="widget-grid" class="widget-row" data-draggable-group="widgets">
+            <div class="widget-card" draggable="true" data-card-id="widget-stale-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">⚠ Project Perlu Perhatian</h3>
               <div id="widget-stale-list" class="widget-list"></div>
             </div>
-            <div class="widget-card">
+            <div class="widget-card" draggable="true" data-card-id="widget-followup-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Follow Up Hari Ini</h3>
               <div id="widget-followup-list" class="widget-list"></div>
             </div>
-            <div class="widget-card">
+            <div class="widget-card" draggable="true" data-card-id="widget-recent-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Aktivitas Terbaru</h3>
               <div id="widget-recent-list" class="widget-list"></div>
             </div>

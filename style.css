@@ -258,6 +258,7 @@ h1, h2, h3, p { margin: 0; }
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: relative;
 }
 .kpi-label { font-size: 12.5px; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
 .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--color-text-primary); }
@@ -268,10 +269,9 @@ h1, h2, h3, p { margin: 0; }
 .glow-danger { border: 1.5px solid var(--color-danger); box-shadow: 0 0 0 1px var(--color-danger-soft); }
 
 /* ============================================================
-   8. CHARTS
+   8. CHARTS — grid fleksibel supaya kartu bisa di-drag bebas
    ============================================================ */
-.chart-row { display: grid; gap: var(--space-md); margin-bottom: var(--space-md); }
-.chart-row.two-col { grid-template-columns: 1fr 1fr; }
+.chart-grid { display: flex; flex-wrap: wrap; gap: var(--space-md); margin-bottom: var(--space-md); }
 
 .chart-card {
   background: var(--color-surface);
@@ -279,8 +279,11 @@ h1, h2, h3, p { margin: 0; }
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
   box-shadow: var(--shadow-card);
+  position: relative;
+  flex: 1 1 calc(50% - var(--space-md) / 2);
+  min-width: 320px;
 }
-.chart-card.full-width { grid-column: 1 / -1; }
+.chart-card.full-width { flex: 1 1 100%; }
 .chart-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-md); }
 .chart-title { font-size: 14px; font-weight: 700; margin-bottom: var(--space-md); }
 .chart-card-header .chart-title { margin-bottom: 0; }
@@ -302,6 +305,7 @@ h1, h2, h3, p { margin: 0; }
   max-height: 380px;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 .widget-list { overflow-y: auto; flex: 1; }
 .widget-item {
@@ -368,7 +372,7 @@ h1, h2, h3, p { margin: 0; }
 }
 @media (max-width: 768px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .chart-row.two-col { grid-template-columns: 1fr; }
+  .chart-card { flex: 1 1 100%; }
   .widget-row { grid-template-columns: 1fr; }
   .filter-bar { flex-direction: column; align-items: stretch; }
   .filter-field { min-width: 0; width: 100%; }
@@ -709,6 +713,20 @@ h1, h2, h3, p { margin: 0; }
   .login-brand-logo { font-size: 26px; }
   .admin-form-row { flex-direction: column; }
 }
+
+/* ============================================================
+   19. DRAG-REPOSISI KARTU (Overview: KPI / Chart / Widget)
+   ============================================================ */
+.drag-handle {
+  position: absolute; top: 10px; right: 12px; cursor: grab;
+  color: var(--color-text-tertiary); font-size: 15px; line-height: 1; user-select: none;
+  opacity: 0; transition: opacity var(--duration-fast) var(--easing);
+}
+[draggable="true"]:hover .drag-handle { opacity: 1; }
+[draggable="true"] { transition: transform var(--duration-fast) var(--easing), box-shadow var(--duration-fast) var(--easing); }
+[draggable="true"].dragging { opacity: 0.35; }
+[draggable="true"]:active { cursor: grabbing; }
+@media print { .drag-handle { display: none; } }
 
 /* ============================================================
    17. PRICE MANAGER — tabel item per grup, input inline
