@@ -176,6 +176,8 @@ const OverviewCache = {
    8. LOGIN
    ============================================================ */
 const Login = {
+  REMEMBER_KEY: 'mgr_remembered_email',
+
   init() {
     document.getElementById('btn-login').addEventListener('click', () => this.submit());
     document.getElementById('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.submit(); });
@@ -184,6 +186,17 @@ const Login = {
       input.type = input.type === 'password' ? 'text' : 'password';
     });
     document.getElementById('btn-logout').addEventListener('click', () => this.logout());
+    document.getElementById('login-forgot').addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Lupa password? Hubungi Super Admin untuk direset — password sementara baru akan dibagikan manual.');
+    });
+
+    // Isi ulang email tersimpan (kalau sebelumnya centang "Remember me")
+    const remembered = localStorage.getItem(this.REMEMBER_KEY);
+    if (remembered) {
+      document.getElementById('login-email').value = remembered;
+      document.getElementById('login-remember').checked = true;
+    }
   },
 
   async submit() {
@@ -217,6 +230,10 @@ const Login = {
 
       State.user = profileResult.data;
       State.businessId = State.user.business_id;
+
+      const rememberChecked = document.getElementById('login-remember').checked;
+      if (rememberChecked) localStorage.setItem(this.REMEMBER_KEY, email);
+      else localStorage.removeItem(this.REMEMBER_KEY);
 
       document.getElementById('view-login').hidden = true;
       document.getElementById('app').hidden = false;

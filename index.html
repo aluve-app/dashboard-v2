@@ -18,14 +18,15 @@
   <!-- ===================== GERBANG LOGIN ===================== -->
   <div id="view-login">
     <div class="login-brand-panel">
-      <div class="login-brand-logo">ALUVE</div>
-      <div class="login-brand-subtitle">Manager Dashboard</div>
+      <img class="login-brand-logo-img" src="./assets/icons/aluve-gbp-lockup.png" alt="ALUVE | GBP" />
+      <div class="login-brand-subtitle">Sales Application</div>
       <div class="login-brand-tagline">Track Every Visit, Grow Every Project</div>
     </div>
     <div class="login-form-panel">
       <div class="login-form-card">
+        <p class="login-app-label">Dashboard Manager</p>
         <h1 class="login-form-title">Welcome!</h1>
-        <p class="login-form-subtitle">Masuk dengan akun manager/admin Anda</p>
+        <p class="login-form-subtitle">Enter your credential login</p>
         <p id="login-error" class="login-error"></p>
         <div class="login-field">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z"/><path d="m22 6-10 7L2 6"/></svg>
@@ -38,8 +39,12 @@
             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
+        <div class="login-options-row">
+          <label class="login-remember"><input id="login-remember" type="checkbox" /> Remember me</label>
+          <a id="login-forgot" href="#" class="login-forgot">Forgot password?</a>
+        </div>
         <button id="btn-login" class="login-submit" type="button">Log in</button>
-        <p class="login-footer-note">ALUVE © Copyright 2026. All Right Reserved</p>
+        <p class="login-footer-note">ALUVE | GBP © Copyright 2026. All Right Reserved</p>
       </div>
     </div>
   </div>
@@ -57,8 +62,8 @@
       </div>
       <div class="mgr-header-right">
         <div id="business-switcher" class="business-switcher no-print" hidden>
-          <button type="button" data-business="aluve" class="active">Aluve</button>
-          <button type="button" data-business="gbp">GBP</button>
+          <button type="button" data-business="aluve" class="active"><img src="./assets/icons/badge-aluve.png" alt="Aluve" /></button>
+          <button type="button" data-business="gbp"><img src="./assets/icons/badge-gbp.png" alt="GBP" /></button>
         </div>
         <button id="btn-export-excel" class="secondary-button ripple" type="button">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>

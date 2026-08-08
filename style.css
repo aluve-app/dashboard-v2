@@ -563,8 +563,9 @@ h1, h2, h3, p { margin: 0; }
   display: flex; flex-direction: column; justify-content: center;
   padding: var(--space-xl) 64px; position: relative;
 }
-.login-brand-logo { font-size: 34px; font-weight: 800; letter-spacing: 0.02em; }
+.login-brand-logo-img { width: 100%; max-width: 380px; height: auto; }
 .login-brand-subtitle { font-size: 17px; font-style: italic; color: #D1D5DB; margin-top: var(--space-sm); }
+.login-app-label { font-size: 15px; font-weight: 700; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: var(--space-sm); }
 .login-brand-tagline {
   position: absolute; left: 64px; bottom: 56px; right: 64px;
   font-size: 15px; font-style: italic; color: #9CA3AF;
@@ -592,11 +593,16 @@ h1, h2, h3, p { margin: 0; }
   color: var(--color-text-tertiary); padding: 4px;
 }
 .login-error { color: var(--color-danger); font-size: 13px; margin-bottom: var(--space-md); min-height: 16px; }
+.login-options-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-lg); font-size: 12.5px; }
+.login-remember { display: flex; align-items: center; gap: 6px; color: var(--color-text-secondary); font-weight: 500; }
+.login-remember input { accent-color: #D0202A; }
+.login-forgot { color: var(--color-text-secondary); font-weight: 500; text-decoration: none; }
+.login-forgot:hover { text-decoration: underline; }
 .login-submit {
-  width: 100%; background: #0A0A0A; color: #FFFFFF; padding: 13px; border-radius: var(--radius-sm);
+  width: 100%; background: #D0202A; color: #FFFFFF; padding: 13px; border-radius: var(--radius-sm);
   font-weight: 700; font-size: 14px; transition: background var(--duration-fast) var(--easing);
 }
-.login-submit:hover { background: #1F2937; }
+.login-submit:hover { background: #AC1922; }
 .login-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 .login-footer-note { text-align: center; font-size: 11.5px; color: var(--color-text-tertiary); margin-top: var(--space-lg); }
 
@@ -612,14 +618,18 @@ h1, h2, h3, p { margin: 0; }
    super_admin (manager biasa terkunci ke bisnisnya sendiri)
    ============================================================ */
 .business-switcher {
-  display: flex; gap: 2px; background: var(--color-surface-alt);
-  border: 1px solid var(--color-border); border-radius: var(--radius-full); padding: 3px;
+  display: flex; gap: 6px; background: var(--color-surface-alt);
+  border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 4px;
 }
 .business-switcher button {
-  padding: 6px 16px; border-radius: var(--radius-full); font-size: 12.5px; font-weight: 700;
-  color: var(--color-text-secondary); transition: background var(--duration-fast) var(--easing), color var(--duration-fast) var(--easing);
+  padding: 3px; border-radius: 8px; line-height: 0;
+  opacity: 0.45; transform: scale(0.94);
+  transition: opacity var(--duration-fast) var(--easing), transform var(--duration-fast) var(--easing), box-shadow var(--duration-fast) var(--easing);
 }
-.business-switcher button.active { background: var(--color-primary); color: var(--color-on-primary); }
+.business-switcher button img { height: 26px; width: auto; border-radius: 6px; display: block; }
+.business-switcher button.active { opacity: 1; transform: scale(1); box-shadow: 0 0 0 2px var(--color-primary); }
+.business-switcher button:hover { opacity: 0.8; }
+.business-switcher button.active:hover { opacity: 1; }
 
 /* ============================================================
    16. ADMIN CONSOLE
