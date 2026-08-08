@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SVS Manager Dashboard</title>
+  <meta name="description" content="Dashboard Manager — ringkasan performa tim sales & admin console SVS" />
+
+  <link rel="stylesheet" href="./style.css" />
+
+  <!-- Chart.js & SheetJS — dashboard ini didesain untuk laptop kantor
+       dengan koneksi stabil, jadi CDN saja (tidak perlu self-host). -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ===================== GERBANG LOGIN ===================== -->
+  <div id="view-login">
+    <div class="login-brand-panel">
+      <div class="login-brand-logo">ALUVE</div>
+      <div class="login-brand-subtitle">Manager Dashboard</div>
+      <div class="login-brand-tagline">Track Every Visit, Grow Every Project</div>
+    </div>
+    <div class="login-form-panel">
+      <div class="login-form-card">
+        <h1 class="login-form-title">Welcome!</h1>
+        <p class="login-form-subtitle">Masuk dengan akun manager/admin Anda</p>
+        <p id="login-error" class="login-error"></p>
+        <div class="login-field">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Z"/><path d="m22 6-10 7L2 6"/></svg>
+          <input id="login-email" type="email" placeholder="Enter your email" autocomplete="username" />
+        </div>
+        <div class="login-field">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input id="login-password" type="password" placeholder="Enter your password" autocomplete="current-password" />
+          <button id="btn-toggle-pw" type="button" class="login-toggle-pw" aria-label="Tampilkan password">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <button id="btn-login" class="login-submit" type="button">Log in</button>
+        <p class="login-footer-note">ALUVE © Copyright 2026. All Right Reserved</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+
+    <!-- ===================== HEADER ===================== -->
+    <header class="mgr-header">
+      <div class="mgr-header-left">
+        <img id="header-logo" class="header-logo" src="./assets/icons/logo.png" alt="Aluve" />
+        <div>
+          <h1 class="mgr-title">Manager Dashboard</h1>
+          <p id="header-subtitle" class="mgr-subtitle">-</p>
+        </div>
+      </div>
+      <div class="mgr-header-right">
+        <div id="business-switcher" class="business-switcher no-print" hidden>
+          <button type="button" data-business="aluve" class="active">Aluve</button>
+          <button type="button" data-business="gbp">GBP</button>
+        </div>
+        <button id="btn-export-excel" class="secondary-button ripple" type="button">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          Export Excel
+        </button>
+        <button id="btn-print-pdf" class="secondary-button ripple" type="button">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print PDF
+        </button>
+        <button id="btn-logout" class="secondary-button ripple" type="button">Keluar</button>
+        <button id="btn-theme-toggle" class="theme-switch" type="button" aria-label="Ganti tema">
+          <svg class="theme-switch-icon theme-switch-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="theme-switch-icon theme-switch-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span class="theme-switch-thumb"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===================== TAB NAVIGATION ===================== -->
+    <nav class="mgr-tabs no-print">
+      <button class="mgr-tab active" type="button" data-tab="overview">Overview</button>
+      <button class="mgr-tab" type="button" data-tab="explorer">Project Explorer</button>
+      <button class="mgr-tab" type="button" data-tab="performance">Performa Sales</button>
+      <button class="mgr-tab" type="button" data-tab="log">Log Aktivitas</button>
+      <button class="mgr-tab" type="button" data-tab="admin" id="tab-btn-admin" hidden>Admin Console</button>
+    </nav>
+
+    <!-- ===================== FILTER BAR ===================== -->
+    <div class="filter-bar no-print" id="global-filter-bar">
+      <div class="filter-field">
+        <label for="filter-date-from">Dari Tanggal</label>
+        <input id="filter-date-from" type="date" class="form-input" />
+      </div>
+      <div class="filter-field">
+        <label for="filter-date-to">Sampai Tanggal</label>
+        <input id="filter-date-to" type="date" class="form-input" />
+      </div>
+      <div class="filter-field">
+        <label for="filter-sales">Sales</label>
+        <select id="filter-sales" class="form-select">
+          <option value="">Semua Sales</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filter-stage">Status Project</label>
+        <select id="filter-stage" class="form-select">
+          <option value="">Semua Stage</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filter-lead-source">Sumber Leads</label>
+        <select id="filter-lead-source" class="form-select">
+          <option value="">Semua Sumber</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="filter-product">Jenis Produk</label>
+        <select id="filter-product" class="form-select">
+          <option value="">Semua Produk</option>
+        </select>
+      </div>
+      <button id="btn-apply-filter" class="primary-button ripple" type="button">Terapkan Filter</button>
+      <button id="btn-reset-filter" class="secondary-button ripple" type="button">Reset</button>
+    </div>
+
+    <!-- ===================== MAIN CONTENT ===================== -->
+    <main id="main-content">
+
+      <!-- ---------- TAB: OVERVIEW ---------- -->
+      <section id="tab-overview" class="mgr-tab-content active">
+
+        <div id="overview-loading" class="loading-container"><div class="loading-spinner"></div><p class="loading-container-text" data-base-text="Memuat data">Memuat data</p></div>
+
+        <div id="overview-content" hidden>
+
+          <p id="overview-updated-at" class="detail-meta-text" style="margin-bottom: var(--space-sm);"></p>
+
+          <div class="kpi-grid">
+            <div class="kpi-card glow-primary">
+              <span class="kpi-label">Total Project</span>
+              <span id="kpi-total-projects" class="kpi-value">0</span>
+            </div>
+            <div class="kpi-card glow-success">
+              <span class="kpi-label">Nilai Pipeline Aktif</span>
+              <span id="kpi-pipeline-value" class="kpi-value">Rp 0</span>
+            </div>
+            <div class="kpi-card glow-warning">
+              <span class="kpi-label">Nilai Deal Won</span>
+              <span id="kpi-won-value" class="kpi-value">Rp 0</span>
+            </div>
+            <div class="kpi-card glow-primary">
+              <span class="kpi-label">Win Rate</span>
+              <span id="kpi-win-rate" class="kpi-value">0%</span>
+            </div>
+            <div class="kpi-card glow-danger">
+              <span class="kpi-label">Total Aktivitas (Periode)</span>
+              <span id="kpi-total-activities" class="kpi-value">0</span>
+            </div>
+          </div>
+
+          <div class="chart-row">
+            <div class="chart-card full-width">
+              <h3 class="chart-title">Funnel Pipeline</h3>
+              <canvas id="chart-funnel"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-row two-col">
+            <div class="chart-card">
+              <div class="chart-card-header">
+                <h3 class="chart-title">Tren Aktivitas</h3>
+                <div id="trend-granularity-chips" class="chip-group">
+                  <button class="chip selected" type="button" data-granularity="daily">Harian</button>
+                  <button class="chip" type="button" data-granularity="weekly">Mingguan</button>
+                  <button class="chip" type="button" data-granularity="monthly">Bulanan</button>
+                </div>
+              </div>
+              <canvas id="chart-trend"></canvas>
+            </div>
+            <div class="chart-card">
+              <h3 class="chart-title">Status Project</h3>
+              <canvas id="chart-status-pie"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-row two-col">
+            <div class="chart-card">
+              <h3 class="chart-title">Ranking Sales (Aktivitas)</h3>
+              <canvas id="chart-sales-ranking"></canvas>
+            </div>
+            <div class="chart-card">
+              <h3 class="chart-title">Alasan Lost</h3>
+              <canvas id="chart-lost-reasons"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-row two-col">
+            <div class="chart-card">
+              <h3 class="chart-title">Sumber Leads</h3>
+              <canvas id="chart-lead-source"></canvas>
+            </div>
+            <div class="chart-card">
+              <h3 class="chart-title">Jenis Produk</h3>
+              <canvas id="chart-product-type"></canvas>
+            </div>
+          </div>
+
+          <div class="widget-row">
+            <div class="widget-card">
+              <h3 class="chart-title">⚠ Project Perlu Perhatian</h3>
+              <div id="widget-stale-list" class="widget-list"></div>
+            </div>
+            <div class="widget-card">
+              <h3 class="chart-title">Follow Up Hari Ini</h3>
+              <div id="widget-followup-list" class="widget-list"></div>
+            </div>
+            <div class="widget-card">
+              <h3 class="chart-title">Aktivitas Terbaru</h3>
+              <div id="widget-recent-list" class="widget-list"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ---------- TAB: PROJECT EXPLORER ---------- -->
+      <section id="tab-explorer" class="mgr-tab-content">
+
+        <div class="explorer-toolbar no-print">
+          <div class="filter-field" style="min-width:280px;">
+            <label for="explorer-search">Cari Nama Project / Lokasi</label>
+            <input id="explorer-search" type="text" class="form-input" placeholder="Ketik untuk mencari..." />
+          </div>
+          <div class="filter-field">
+            <label for="explorer-lead-source">Sumber Leads</label>
+            <select id="explorer-lead-source" class="form-select">
+              <option value="">Semua Sumber</option>
+            </select>
+          </div>
+          <button id="btn-explorer-search" class="secondary-button ripple" type="button">Cari</button>
+        </div>
+
+        <div id="explorer-loading" class="loading-container"><div class="loading-spinner"></div><p class="loading-container-text" data-base-text="Memuat data">Memuat data</p></div>
+
+        <div id="explorer-table-wrap" hidden>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Nama Project</th>
+                  <th>Sales</th>
+                  <th>Stage</th>
+                  <th>Sumber Leads</th>
+                  <th>Nilai</th>
+                  <th>Lokasi</th>
+                  <th>Update Terakhir</th>
+                </tr>
+              </thead>
+              <tbody id="explorer-table-body"></tbody>
+            </table>
+          </div>
+          <p id="explorer-empty" class="empty-state" hidden>Tidak ada project yang cocok.</p>
+        </div>
+      </section>
+
+      <!-- ---------- MODAL: DETAIL PROJECT ---------- -->
+      <div id="project-detail-overlay" class="modal-overlay no-print" hidden>
+        <div class="modal-panel">
+          <div class="modal-header">
+            <h3 id="detail-project-name">-</h3>
+            <button id="btn-close-detail" class="icon-btn" type="button" aria-label="Tutup">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="detail-meta-row">
+              <span id="detail-project-stage" class="detail-badge">-</span>
+              <span id="detail-project-value" class="detail-meta-text">-</span>
+              <span id="detail-project-address" class="detail-meta-text">-</span>
+              <span id="detail-project-lead-source" class="detail-meta-text">-</span>
+            </div>
+
+            <div id="detail-contacts" class="contact-list"></div>
+
+            <h4 class="chart-title">Foto Project</h4>
+            <div id="detail-photo-grid" class="photo-grid"></div>
+
+            <h4 class="chart-title">Riwayat Aktivitas</h4>
+            <div id="detail-timeline" class="timeline"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- LIGHTBOX FOTO ---------- -->
+      <div id="photo-lightbox" class="lightbox-overlay no-print" hidden>
+        <button id="btn-close-lightbox" class="lightbox-close" type="button" aria-label="Tutup">✕</button>
+        <img id="lightbox-image" src="" alt="Foto diperbesar" />
+      </div>
+
+      <!-- ---------- TAB: PERFORMA SALES ---------- -->
+      <section id="tab-performance" class="mgr-tab-content">
+
+        <div id="performance-loading" class="loading-container"><div class="loading-spinner"></div><p class="loading-container-text" data-base-text="Memuat data">Memuat data</p></div>
+
+        <div id="performance-content" hidden>
+          <div class="chart-card" style="margin-bottom: var(--space-lg);">
+            <h3 class="chart-title">Perbandingan Sales</h3>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Sales</th>
+                    <th>Total Aktivitas</th>
+                    <th>Visit</th>
+                    <th>Won</th>
+                    <th>Lost</th>
+                    <th>Nilai Won</th>
+                    <th>Project Aktif</th>
+                  </tr>
+                </thead>
+                <tbody id="performance-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="performance-detail" hidden>
+            <h3 class="chart-title" id="performance-detail-title">Detail Sales</h3>
+            <div class="kpi-grid" id="performance-detail-kpi" style="grid-template-columns: repeat(4, 1fr);"></div>
+            <div class="chart-card full-width">
+              <h3 class="chart-title">Tren Aktivitas Pribadi</h3>
+              <canvas id="chart-performance-trend"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- TAB: LOG AKTIVITAS ---------- -->
+      <section id="tab-log" class="mgr-tab-content">
+
+        <div class="explorer-toolbar no-print">
+          <div class="filter-field">
+            <label for="log-activity-type">Jenis Aktivitas</label>
+            <select id="log-activity-type" class="form-select">
+              <option value="">Semua Jenis</option>
+              <option value="Kunjungan Pertama">Kunjungan Pertama</option>
+              <option value="Follow Up">Follow Up</option>
+              <option value="Presentasi Produk">Presentasi Produk</option>
+              <option value="Negosiasi">Negosiasi</option>
+              <option value="Survey Lokasi">Survey Lokasi</option>
+            </select>
+          </div>
+          <button id="btn-log-filter" class="secondary-button ripple" type="button">Terapkan</button>
+        </div>
+
+        <div id="log-loading" class="loading-container"><div class="loading-spinner"></div><p class="loading-container-text" data-base-text="Memuat data">Memuat data</p></div>
+
+        <div id="log-table-wrap" hidden>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Project</th>
+                  <th>Sales</th>
+                  <th>Jenis</th>
+                  <th>Catatan</th>
+                  <th>Status Saat Itu</th>
+                </tr>
+              </thead>
+              <tbody id="log-table-body"></tbody>
+            </table>
+          </div>
+          <p id="log-empty" class="empty-state" hidden>Tidak ada aktivitas yang cocok dengan filter.</p>
+
+          <div class="log-pagination no-print">
+            <button id="btn-log-prev" class="secondary-button ripple" type="button">← Sebelumnya</button>
+            <span id="log-page-info">-</span>
+            <button id="btn-log-next" class="secondary-button ripple" type="button">Berikutnya →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- TAB: ADMIN CONSOLE (khusus manager/super_admin) ---------- -->
+      <section id="tab-admin" class="mgr-tab-content">
+
+        <div class="admin-subnav no-print">
+          <button type="button" class="active" data-admin-panel="lookup">Admin Lookup</button>
+          <button type="button" data-admin-panel="users" id="admin-subnav-users" hidden>Kelola Akun User</button>
+          <button type="button" data-admin-panel="settings" id="admin-subnav-settings" hidden>Pengaturan Estimator</button>
+        </div>
+
+        <!-- ---- Admin Lookup ---- -->
+        <div id="admin-panel-lookup" class="admin-panel active">
+          <div class="admin-card">
+            <h3>Kelola Pilihan Dropdown</h3>
+            <p class="detail-meta-text" style="margin-bottom: var(--space-md);">
+              Pilih kategori, lalu tambah/hapus pilihan. Perubahan langsung tersimpan dan otomatis terbaca Sales App.
+            </p>
+            <div id="lookup-category-list" class="lookup-category-list"></div>
+            <div id="lookup-chip-list" class="lookup-chip-list"></div>
+            <div class="lookup-add-row">
+              <input id="lookup-add-input" type="text" class="form-input" placeholder="Tambah pilihan baru..." />
+              <button id="btn-lookup-add" class="primary-button ripple" type="button">Tambah</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- Kelola Akun User (super_admin) ---- -->
+        <div id="admin-panel-users" class="admin-panel">
+          <div class="admin-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--space-md);">
+              <h3 style="margin-bottom:0;">Daftar Akun</h3>
+              <button id="btn-open-new-user-form" class="primary-button ripple" type="button">+ Tambah Akun Baru</button>
+            </div>
+
+            <div id="new-user-form" class="admin-card" style="background: var(--color-surface-alt); margin-bottom: var(--space-lg);" hidden>
+              <h3>Akun Baru</h3>
+              <div class="admin-form-row">
+                <div class="filter-field"><label>Nama</label><input id="nu-name" type="text" class="form-input" /></div>
+                <div class="filter-field"><label>Email</label><input id="nu-email" type="email" class="form-input" /></div>
+              </div>
+              <div class="admin-form-row">
+                <div class="filter-field">
+                  <label>Role</label>
+                  <select id="nu-role" class="form-select">
+                    <option value="sales">Sales</option>
+                    <option value="estimator">Estimator</option>
+                    <option value="manager">Manager</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+                <div class="filter-field">
+                  <label>Bisnis</label>
+                  <select id="nu-business" class="form-select">
+                    <option value="aluve">Aluve</option>
+                    <option value="gbp">GBP</option>
+                  </select>
+                </div>
+                <div class="filter-field"><label>Sales Code (opsional)</label><input id="nu-sales-code" type="text" class="form-input" placeholder="mis. SLS-03" /></div>
+              </div>
+              <div style="display:flex; gap: var(--space-sm);">
+                <button id="btn-submit-new-user" class="primary-button ripple" type="button">Buat Akun</button>
+                <button id="btn-cancel-new-user" class="secondary-button ripple" type="button">Batal</button>
+              </div>
+            </div>
+
+            <div id="temp-password-display" hidden></div>
+
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Nama</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Bisnis</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- Pengaturan Estimator (super_admin) ---- -->
+        <div id="admin-panel-settings" class="admin-panel">
+          <div class="admin-card">
+            <h3>Pengaturan Kop Surat & Penawaran Estimator</h3>
+            <div class="admin-form-row">
+              <div class="filter-field"><label>Nama Perusahaan</label><input id="es-company-name" type="text" class="form-input" /></div>
+              <div class="filter-field"><label>Alamat</label><input id="es-address" type="text" class="form-input" /></div>
+            </div>
+            <div class="admin-form-row">
+              <div class="filter-field"><label>Nomor Rekening</label><input id="es-bank-account" type="text" class="form-input" /></div>
+              <div class="filter-field"><label>Syarat Pembayaran</label><input id="es-payment-terms" type="text" class="form-input" /></div>
+            </div>
+            <div class="filter-field" style="margin-bottom: var(--space-md);">
+              <label>Syarat &amp; Ketentuan (default)</label>
+              <textarea id="es-terms" class="form-input" rows="5"></textarea>
+            </div>
+            <button id="btn-save-settings" class="primary-button ripple" type="button">Simpan Pengaturan</button>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- ===================== SNACKBAR ===================== -->
+    <div id="snackbar" class="snackbar" role="status" aria-live="polite"></div>
+
+  </div>
+
+  <script src="./config.js"></script>
+  <script src="./script.js"></script>
+</body>
+</html>
