@@ -404,6 +404,9 @@
               Pilih kategori, lalu tambah/hapus pilihan. Perubahan langsung tersimpan dan otomatis terbaca Sales App.
             </p>
             <div id="lookup-category-list" class="lookup-category-list"></div>
+            <p id="lookup-warning" class="lookup-warning-note" hidden>
+              ⚠ 5 nama tahap ini dipakai logic sistem (bukan sekadar teks dropdown) — <strong>New Visit, Perlu Estimasi Harga, Penawaran Siap, Won, Lost</strong> harus tetap ada persis dengan ejaan ini. Boleh tambah tahap lain di luar 5 ini, tapi jangan hapus/ganti nama salah satu dari 5 tahap tadi tanpa bilang ke saya dulu.
+            </p>
             <div id="lookup-chip-list" class="lookup-chip-list"></div>
             <div class="lookup-add-row">
               <input id="lookup-add-input" type="text" class="form-input" placeholder="Tambah pilihan baru..." />
@@ -427,7 +430,10 @@
             <p class="detail-meta-text" style="margin-bottom: var(--space-md);">
               Bisa diedit langsung di tabel, atau lewat Excel: klik "Export Excel" untuk unduh data saat ini, edit di Excel (jangan ubah nama kolom/sheet), lalu "Upload Excel" untuk memuat balik. Setelah edit (di tabel maupun Excel), tetap klik "Simpan Semua Perubahan" untuk menyimpan ke server.
             </p>
-            <div id="price-category-list" class="lookup-category-list"></div>
+            <div style="display:flex; align-items:center; gap: var(--space-sm); margin-bottom: var(--space-sm);">
+              <div id="price-category-list" class="lookup-category-list" style="margin-bottom:0; flex:1;"></div>
+              <button id="btn-add-tier" class="secondary-button ripple" type="button" style="white-space:nowrap;">+ Tambah Tier</button>
+            </div>
             <div id="price-category-content"></div>
           </div>
         </div>

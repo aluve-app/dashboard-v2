@@ -658,6 +658,11 @@ h1, h2, h3, p { margin: 0; }
 }
 .lookup-category-list button.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 
+.lookup-warning-note {
+  background: var(--color-warning-soft); border: 1px solid var(--color-warning); color: var(--color-text-primary);
+  border-radius: var(--radius-sm); padding: var(--space-sm) var(--space-md); font-size: 12.5px; margin-bottom: var(--space-md);
+}
+
 .lookup-chip-list { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-bottom: var(--space-md); min-height: 36px; }
 .lookup-chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 14px;

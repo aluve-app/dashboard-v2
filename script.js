@@ -47,6 +47,22 @@ const LOOKUP_CATEGORIES = [
   { key: 'contact_role', label: 'Role Kontak' }
 ];
 
+// Nilai default yang SAMA PERSIS dipakai Sales App sebagai fallback saat
+// Firestore belum ada datanya (LookupCache.DEFAULTS di script.js Sales App).
+// Dipakai tombol "Isi dari Default" di Admin Lookup — supaya Firestore-nya
+// benar-benar terisi, bukan cuma tampil karena fallback client-side.
+const LOOKUP_DEFAULTS = {
+  activity_type: ['Kunjungan Pertama', 'Follow Up', 'Presentasi Produk', 'Negosiasi', 'Survey Lokasi', 'Lainnya'],
+  pipeline_stage: ['New Visit', 'Perlu Estimasi Harga', 'Penawaran Siap', 'Won', 'Lost'],
+  activity_temperature: ['Cold', 'Warm', 'Hot'],
+  project_category: ['Residensial', 'Komersial', 'Industrial', 'Villa'],
+  construction_stage: ['Perencanaan', 'Pembangunan', 'Finishing', 'Selesai'],
+  product_type: ['Jendela Aluminium', 'Pintu Aluminium', 'Curtain Wall', 'Facade', 'Partisi Kaca'],
+  lead_source: ['Canvassing', 'Referral', 'Website', 'Pameran'],
+  lost_reason: ['Harga Kalah Bersaing', 'Pilih Vendor Lain', 'Project Dibatalkan', 'Tidak Ada Kabar'],
+  contact_role: ['Pemilik', 'Arsitek', 'Kontraktor', 'Interior Designer', 'Lainnya']
+};
+
 /* ============================================================
    2. API — semua request pakai Bearer token Firebase Auth
    ============================================================ */
@@ -1110,14 +1126,39 @@ const AdminLookup = {
     const key = State.currentLookupCategory;
     const values = State.lookupData[key] || [];
     const el = document.getElementById('lookup-chip-list');
-    el.innerHTML = values.length === 0
-      ? '<p class="empty-state" style="padding: var(--space-sm) 0;">Belum ada pilihan untuk kategori ini.</p>'
-      : values.map((v) =>
-          '<span class="lookup-chip">' + v + '<button type="button" data-value="' + v + '">✕</button></span>'
-        ).join('');
+    const warnEl = document.getElementById('lookup-warning');
+
+    warnEl.hidden = key !== 'pipeline_stage';
+
+    if (values.length === 0) {
+      const hasDefault = !!LOOKUP_DEFAULTS[key];
+      el.innerHTML = '<p class="empty-state" style="padding: var(--space-sm) 0; width:100%;">Belum ada pilihan untuk kategori ini' +
+        (hasDefault ? ' — datanya memang belum pernah diisi di server (bukan error tampilan).' : '.') + '</p>' +
+        (hasDefault ? '<button type="button" id="btn-lookup-seed-default" class="secondary-button ripple">Isi dari Default Sales App</button>' : '');
+      const seedBtn = document.getElementById('btn-lookup-seed-default');
+      if (seedBtn) seedBtn.addEventListener('click', () => this.seedDefault());
+      return;
+    }
+
+    el.innerHTML = values.map((v) =>
+      '<span class="lookup-chip">' + v + '<button type="button" data-value="' + v + '">✕</button></span>'
+    ).join('');
     el.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => this.removeValue(btn.dataset.value));
     });
+  },
+
+  async seedDefault() {
+    const key = State.currentLookupCategory;
+    const defaults = LOOKUP_DEFAULTS[key];
+    if (!defaults) return;
+
+    const result = await Api.call('updateLookupOptions', Api.withBusiness({ lookup_type: key, values: defaults }));
+    if (!result.success) { Snackbar.show(result.message || 'Gagal mengisi default', 'error'); return; }
+
+    State.lookupData[key] = defaults.slice();
+    this.renderChips();
+    Snackbar.show('Diisi dari default — sekarang bisa diedit/dihapus manual', 'success');
   },
 
   async addValue() {
@@ -1166,6 +1207,33 @@ const AdminPriceManager = {
     document.getElementById('btn-export-price-excel').addEventListener('click', () => this.exportExcel());
     document.getElementById('btn-upload-price-excel').addEventListener('click', () => document.getElementById('price-excel-file').click());
     document.getElementById('price-excel-file').addEventListener('change', (e) => this.importExcel(e.target.files[0]));
+    document.getElementById('btn-add-tier').addEventListener('click', () => this.addTier());
+  },
+
+  addTier() {
+    const label = prompt('Nama tier baru (mis. "ALUVE Linea (Standard line)"):');
+    if (!label || !label.trim()) return;
+
+    // Buat key otomatis dari label: huruf besar, spasi jadi underscore, buang simbol
+    let key = label.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!key) { Snackbar.show('Nama tier tidak valid', 'error'); return; }
+    if (State.priceCatalog.brand_tiers[key]) { Snackbar.show('Tier dengan key "' + key + '" sudah ada', 'error'); return; }
+
+    State.priceCatalog.brand_tiers[key] = { label: label.trim(), groups: [] };
+    State.priceCategory = key;
+    this.renderCategoryList();
+    this.renderCategory();
+    Snackbar.show('Tier "' + label.trim() + '" ditambahkan — klik "+ Tambah Grup Produk" untuk isi turunannya, lalu "Simpan Semua Perubahan"', 'success');
+  },
+
+  addGroup(tierKey) {
+    const name = prompt('Nama grup produk baru (mis. "PINTU SWING SERIES BARU"):');
+    if (!name || !name.trim()) return;
+    const code = prompt('Kode grup (opsional, mis. "1.d") — boleh dikosongkan:') || '';
+
+    State.priceCatalog.brand_tiers[tierKey].groups.push({ code: code.trim(), name: name.trim(), items: [] });
+    this.renderCategory();
+    Snackbar.show('Grup produk ditambahkan — klik "+ Tambah Item" untuk isi harganya', 'success');
   },
 
   async load() {
@@ -1221,10 +1289,18 @@ const AdminPriceManager = {
       const tier = State.priceCatalog.brand_tiers[key];
       if (!tier) { contentEl.innerHTML = '<p class="empty-state">Kategori tidak ditemukan.</p>'; return; }
       contentEl.innerHTML =
-        '<div class="admin-form-row"><div class="filter-field"><label>Nama Tier</label>' +
-        '<input class="form-input price-input" data-tier-label="' + key + '" value="' + (tier.label || '') + '" /></div></div>' +
+        '<div class="admin-form-row" style="align-items:flex-end;">' +
+        '<div class="filter-field"><label>Nama Tier</label>' +
+        '<input class="form-input price-input" data-tier-label="' + key + '" value="' + (tier.label || '') + '" /></div>' +
+        '<button type="button" class="secondary-button ripple" id="btn-add-group-' + key + '">+ Tambah Grup Produk</button>' +
+        '<button type="button" class="secondary-button ripple" id="btn-delete-tier-' + key + '" style="color:var(--color-danger);">Hapus Tier Ini</button>' +
+        '</div>' +
+        ((tier.groups || []).length === 0 ? '<p class="empty-state">Belum ada grup produk. Klik "+ Tambah Grup Produk" untuk mulai.</p>' : '') +
         (tier.groups || []).map((g, gi) => this.renderGroupTable(key, g, gi)).join('');
       this.bindTierLabelInput();
+
+      document.getElementById('btn-add-group-' + key).addEventListener('click', () => this.addGroup(key));
+      document.getElementById('btn-delete-tier-' + key).addEventListener('click', () => this.deleteTier(key));
     }
 
     this.bindItemInputs();
@@ -1232,10 +1308,26 @@ const AdminPriceManager = {
     this.bindAddButtons();
   },
 
+  deleteTier(tierKey) {
+    const tier = State.priceCatalog.brand_tiers[tierKey];
+    const itemCount = (tier.groups || []).reduce((sum, g) => sum + (g.items || []).length, 0);
+    const confirmMsg = 'Hapus tier "' + (tier.label || tierKey) + '"' +
+      (itemCount > 0 ? ' beserta ' + itemCount + ' item harga di dalamnya' : '') + '? Ini tidak bisa dibatalkan setelah "Simpan Semua Perubahan" diklik.';
+    if (!confirm(confirmMsg)) return;
+
+    delete State.priceCatalog.brand_tiers[tierKey];
+    State.priceCategory = Object.keys(State.priceCatalog.brand_tiers)[0] || 'glass';
+    this.renderCategoryList();
+    this.renderCategory();
+    Snackbar.show('Tier dihapus dari tampilan — klik "Simpan Semua Perubahan" untuk permanen', 'success');
+  },
+
   renderGroupTable(tierKey, group, groupIndex) {
     return '<div class="price-group-card">' +
       '<div class="price-group-header"><span class="price-group-code">' + (group.code || '') + '</span>' +
-      '<input class="form-input price-input" data-group-name="' + tierKey + '|' + groupIndex + '" value="' + (group.name || '') + '" /></div>' +
+      '<input class="form-input price-input" data-group-name="' + tierKey + '|' + groupIndex + '" value="' + (group.name || '') + '" />' +
+      '<button type="button" class="btn-row-delete" data-delete-group="' + tierKey + '|' + groupIndex + '" title="Hapus grup ini">✕ Hapus Grup</button>' +
+      '</div>' +
       this.itemsTableHtml(group.items || [], tierKey, groupIndex) +
       '<button type="button" class="secondary-button ripple btn-add-item-row" data-add-item="' + tierKey + '|' + groupIndex + '">+ Tambah Item</button>' +
       '</div>';
@@ -1312,6 +1404,15 @@ const AdminPriceManager = {
         const groupIndex = gi === '' ? null : Number(gi);
         const arr = this.getItemsArray(scope, groupIndex);
         arr.splice(Number(ii), 1);
+        this.renderCategory();
+      });
+    });
+    document.querySelectorAll('[data-delete-group]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const [tierKey, gi] = btn.dataset.deleteGroup.split('|');
+        const group = State.priceCatalog.brand_tiers[tierKey].groups[Number(gi)];
+        if (!confirm('Hapus grup "' + (group.name || '') + '" beserta ' + (group.items || []).length + ' item di dalamnya?')) return;
+        State.priceCatalog.brand_tiers[tierKey].groups.splice(Number(gi), 1);
         this.renderCategory();
       });
     });
