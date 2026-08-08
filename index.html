@@ -391,6 +391,7 @@
 
         <div class="admin-subnav no-print">
           <button type="button" class="active" data-admin-panel="lookup">Admin Lookup</button>
+          <button type="button" data-admin-panel="price" id="admin-subnav-price" hidden>Price Manager</button>
           <button type="button" data-admin-panel="users" id="admin-subnav-users" hidden>Kelola Akun User</button>
           <button type="button" data-admin-panel="settings" id="admin-subnav-settings" hidden>Pengaturan Estimator</button>
         </div>
@@ -408,6 +409,21 @@
               <input id="lookup-add-input" type="text" class="form-input" placeholder="Tambah pilihan baru..." />
               <button id="btn-lookup-add" class="primary-button ripple" type="button">Tambah</button>
             </div>
+          </div>
+        </div>
+
+        <!-- ---- Price Manager (super_admin) ---- -->
+        <div id="admin-panel-price" class="admin-panel">
+          <div class="admin-card">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--space-md); flex-wrap:wrap; gap: var(--space-sm);">
+              <h3 style="margin-bottom:0;">Katalog Harga Estimator</h3>
+              <button id="btn-save-price-catalog" class="primary-button ripple" type="button">Simpan Semua Perubahan</button>
+            </div>
+            <p class="detail-meta-text" style="margin-bottom: var(--space-md);">
+              Pilih kategori, edit harga/nama/satuan langsung di tabel, lalu klik "Simpan Semua Perubahan" — perubahan tidak tersimpan otomatis per baris.
+            </p>
+            <div id="price-category-list" class="lookup-category-list"></div>
+            <div id="price-category-content"></div>
           </div>
         </div>
 

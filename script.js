@@ -177,6 +177,7 @@ const OverviewCache = {
    ============================================================ */
 const Login = {
   REMEMBER_KEY: 'mgr_remembered_email',
+  REFRESH_KEY: 'mgr_refresh_token',
 
   init() {
     document.getElementById('btn-login').addEventListener('click', () => this.submit());
@@ -196,6 +197,52 @@ const Login = {
     if (remembered) {
       document.getElementById('login-email').value = remembered;
       document.getElementById('login-remember').checked = true;
+    }
+
+    // Kalau ada sesi tersimpan (refresh token), coba login otomatis diam-diam
+    // sebelum menampilkan form login — supaya "Remember me" benar-benar
+    // mempertahankan sesi, bukan cuma mengisi ulang email.
+    const hasSession = localStorage.getItem(this.REFRESH_KEY);
+    if (hasSession) {
+      document.getElementById('view-login').hidden = true;
+      this.trySilentLogin().then((ok) => {
+        if (!ok) document.getElementById('view-login').hidden = false;
+      });
+    }
+  },
+
+  /** Tukar refresh token tersimpan dengan idToken baru — dipakai untuk login otomatis */
+  async trySilentLogin() {
+    const refreshToken = localStorage.getItem(this.REFRESH_KEY);
+    if (!refreshToken) return false;
+    try {
+      const res = await fetch('https://securetoken.googleapis.com/v1/token?key=' + FIREBASE_API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error('Sesi tersimpan sudah tidak berlaku');
+
+      State.idToken = json.id_token;
+      // Google me-rotasi refresh token tiap dipakai — simpan yang baru
+      localStorage.setItem(this.REFRESH_KEY, json.refresh_token);
+
+      const profileResult = await Api.rawCall('readMyProfile', {});
+      if (!profileResult.success || !['manager', 'super_admin'].includes(profileResult.data.role)) {
+        throw new Error('Akun tidak valid untuk Manager Dashboard');
+      }
+
+      State.user = profileResult.data;
+      State.businessId = State.user.business_id;
+
+      document.getElementById('view-login').hidden = true;
+      document.getElementById('app').hidden = false;
+      initApp();
+      return true;
+    } catch (err) {
+      localStorage.removeItem(this.REFRESH_KEY);
+      return false;
     }
   },
 
@@ -232,8 +279,13 @@ const Login = {
       State.businessId = State.user.business_id;
 
       const rememberChecked = document.getElementById('login-remember').checked;
-      if (rememberChecked) localStorage.setItem(this.REMEMBER_KEY, email);
-      else localStorage.removeItem(this.REMEMBER_KEY);
+      if (rememberChecked) {
+        localStorage.setItem(this.REMEMBER_KEY, email);
+        localStorage.setItem(this.REFRESH_KEY, json.refreshToken);
+      } else {
+        localStorage.removeItem(this.REMEMBER_KEY);
+        localStorage.removeItem(this.REFRESH_KEY);
+      }
 
       document.getElementById('view-login').hidden = true;
       document.getElementById('app').hidden = false;
@@ -253,9 +305,9 @@ const Login = {
   logout() {
     State.idToken = null;
     State.user = null;
+    localStorage.removeItem(this.REFRESH_KEY);
     document.getElementById('app').hidden = true;
     document.getElementById('view-login').hidden = false;
-    document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
   }
 };
@@ -1008,16 +1060,18 @@ const AdminConsole = {
     });
 
     const isSuperAdmin = State.user.role === 'super_admin';
+    document.getElementById('admin-subnav-price').hidden = !isSuperAdmin;
     document.getElementById('admin-subnav-users').hidden = !isSuperAdmin;
     document.getElementById('admin-subnav-settings').hidden = !isSuperAdmin;
 
     AdminLookup.init();
-    if (isSuperAdmin) { AdminUsers.init(); AdminSettings.init(); }
+    if (isSuperAdmin) { AdminPriceManager.init(); AdminUsers.init(); AdminSettings.init(); }
   },
   goTo(panel) {
     document.querySelectorAll('.admin-subnav button').forEach((b) => b.classList.toggle('active', b.dataset.adminPanel === panel));
     document.querySelectorAll('.admin-panel').forEach((p) => p.classList.remove('active'));
     document.getElementById('admin-panel-' + panel).classList.add('active');
+    if (panel === 'price' && !State.priceCatalogLoaded) AdminPriceManager.load();
     if (panel === 'users' && !State.usersLoaded) AdminUsers.load();
     if (panel === 'settings' && !State.settingsLoaded) AdminSettings.load();
   }
@@ -1096,7 +1150,199 @@ const AdminLookup = {
   }
 };
 
-/* ---- 19b. Kelola Akun User (super_admin) ---- */
+/* ---- 19b. Price Manager (super_admin) ---- */
+const UOM_LABELS = {
+  meter_lari: 'Meter Lari', unit: 'Unit/Satuan', m2: 'M² (meter persegi)', tube_estimated: 'Tube (estimasi)'
+};
+function uomOptionsHtml(selected) {
+  return Object.keys(UOM_LABELS).map((k) =>
+    '<option value="' + k + '"' + (k === selected ? ' selected' : '') + '>' + UOM_LABELS[k] + '</option>'
+  ).join('');
+}
+
+const AdminPriceManager = {
+  init() {
+    document.getElementById('btn-save-price-catalog').addEventListener('click', () => this.save());
+  },
+
+  async load() {
+    State.priceCatalogLoaded = true;
+    const result = await Api.call('readPriceCatalog', Api.withBusiness({}));
+    if (!result.success) { Snackbar.show(result.message || 'Gagal memuat katalog harga', 'error'); return; }
+
+    State.priceCatalog = result.data || { brand_tiers: {}, glass: { items: [] }, other: { items: [] }, sealant: null };
+    if (!State.priceCatalog.glass) State.priceCatalog.glass = { items: [] };
+    if (!State.priceCatalog.other) State.priceCatalog.other = { items: [] };
+    State.priceCategory = Object.keys(State.priceCatalog.brand_tiers || {})[0] || 'glass';
+    this.renderCategoryList();
+    this.renderCategory();
+  },
+
+  renderCategoryList() {
+    const tierKeys = Object.keys(State.priceCatalog.brand_tiers || {});
+    const listEl = document.getElementById('price-category-list');
+    const items = tierKeys.map((k) => ({ key: k, label: (State.priceCatalog.brand_tiers[k].label || k) }));
+    items.push({ key: 'glass', label: 'Kaca' });
+    items.push({ key: 'other_sealant', label: 'Lain-lain & Sealant' });
+
+    listEl.innerHTML = items.map((it) =>
+      '<button type="button" data-key="' + it.key + '" class="' + (it.key === State.priceCategory ? 'active' : '') + '">' + it.label + '</button>'
+    ).join('');
+    listEl.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        State.priceCategory = btn.dataset.key;
+        listEl.querySelectorAll('button').forEach((b) => b.classList.toggle('active', b === btn));
+        this.renderCategory();
+      });
+    });
+  },
+
+  renderCategory() {
+    const key = State.priceCategory;
+    const contentEl = document.getElementById('price-category-content');
+
+    if (key === 'glass') {
+      contentEl.innerHTML = this.renderFlatItemsTable(State.priceCatalog.glass.items || [], 'glass');
+    } else if (key === 'other_sealant') {
+      const sealant = State.priceCatalog.sealant || { name: 'SEALANT', harga_modal: 0, uom: 'tube_estimated' };
+      contentEl.innerHTML =
+        this.renderFlatItemsTable(State.priceCatalog.other.items || [], 'other') +
+        '<div class="price-group-card"><div class="price-group-header"><strong>Sealant (item tunggal)</strong></div>' +
+        '<div class="admin-form-row">' +
+        '<div class="filter-field"><label>Nama</label><input class="form-input price-input" data-sealant-field="name" value="' + (sealant.name || '') + '" /></div>' +
+        '<div class="filter-field"><label>Harga Modal</label><input type="number" class="form-input price-input" data-sealant-field="harga_modal" value="' + (sealant.harga_modal || 0) + '" /></div>' +
+        '<div class="filter-field"><label>Satuan</label><select class="form-select price-input" data-sealant-field="uom">' + uomOptionsHtml(sealant.uom) + '</select></div>' +
+        '</div></div>';
+      this.bindSealantInputs();
+    } else {
+      const tier = State.priceCatalog.brand_tiers[key];
+      if (!tier) { contentEl.innerHTML = '<p class="empty-state">Kategori tidak ditemukan.</p>'; return; }
+      contentEl.innerHTML =
+        '<div class="admin-form-row"><div class="filter-field"><label>Nama Tier</label>' +
+        '<input class="form-input price-input" data-tier-label="' + key + '" value="' + (tier.label || '') + '" /></div></div>' +
+        (tier.groups || []).map((g, gi) => this.renderGroupTable(key, g, gi)).join('');
+      this.bindTierLabelInput();
+    }
+
+    this.bindItemInputs();
+    this.bindDeleteButtons();
+    this.bindAddButtons();
+  },
+
+  renderGroupTable(tierKey, group, groupIndex) {
+    return '<div class="price-group-card">' +
+      '<div class="price-group-header"><span class="price-group-code">' + (group.code || '') + '</span>' +
+      '<input class="form-input price-input" data-group-name="' + tierKey + '|' + groupIndex + '" value="' + (group.name || '') + '" /></div>' +
+      this.itemsTableHtml(group.items || [], tierKey, groupIndex) +
+      '<button type="button" class="secondary-button ripple btn-add-item-row" data-add-item="' + tierKey + '|' + groupIndex + '">+ Tambah Item</button>' +
+      '</div>';
+  },
+
+  renderFlatItemsTable(items, scope) {
+    return '<div class="price-group-card">' +
+      this.itemsTableHtml(items, scope, null) +
+      '<button type="button" class="secondary-button ripple btn-add-item-row" data-add-item="' + scope + '|">+ Tambah Item</button>' +
+      '</div>';
+  },
+
+  itemsTableHtml(items, scope, groupIndex) {
+    const gi = groupIndex === null || groupIndex === undefined ? '' : groupIndex;
+    return '<div class="table-scroll"><table class="data-table"><thead><tr>' +
+      '<th class="col-name">Nama Item</th><th class="col-price">Harga Modal</th><th class="col-uom">Satuan</th><th class="col-action"></th>' +
+      '</tr></thead><tbody>' +
+      items.map((item, ii) => {
+        const path = scope + '|' + gi + '|' + ii;
+        return '<tr>' +
+          '<td class="col-name"><input class="price-input" data-item-field="' + path + '|name" value="' + (item.name || '') + '" /></td>' +
+          '<td class="col-price"><input type="number" class="price-input" data-item-field="' + path + '|harga_modal" value="' + (item.harga_modal || 0) + '" /></td>' +
+          '<td class="col-uom"><select class="price-input" data-item-field="' + path + '|uom">' + uomOptionsHtml(item.uom) + '</select></td>' +
+          '<td class="col-action"><button type="button" class="btn-row-delete" data-delete-item="' + path + '" title="Hapus item">✕</button></td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table></div>';
+  },
+
+  /** Ambil referensi array items sesuai scope ('glass'/'other'/tierKey) + groupIndex */
+  getItemsArray(scope, groupIndex) {
+    if (scope === 'glass') return State.priceCatalog.glass.items;
+    if (scope === 'other') return State.priceCatalog.other.items;
+    return State.priceCatalog.brand_tiers[scope].groups[groupIndex].items;
+  },
+
+  bindTierLabelInput() {
+    document.querySelectorAll('[data-tier-label]').forEach((el) => {
+      el.addEventListener('input', () => { State.priceCatalog.brand_tiers[el.dataset.tierLabel].label = el.value; });
+    });
+    document.querySelectorAll('[data-group-name]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const [tierKey, gi] = el.dataset.groupName.split('|');
+        State.priceCatalog.brand_tiers[tierKey].groups[Number(gi)].name = el.value;
+      });
+    });
+  },
+
+  bindSealantInputs() {
+    document.querySelectorAll('[data-sealant-field]').forEach((el) => {
+      el.addEventListener('input', () => {
+        if (!State.priceCatalog.sealant) State.priceCatalog.sealant = {};
+        const field = el.dataset.sealantField;
+        State.priceCatalog.sealant[field] = field === 'harga_modal' ? Number(el.value) : el.value;
+      });
+    });
+  },
+
+  bindItemInputs() {
+    document.querySelectorAll('[data-item-field]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const [scope, gi, ii, field] = el.dataset.itemField.split('|');
+        const groupIndex = gi === '' ? null : Number(gi);
+        const arr = this.getItemsArray(scope, groupIndex);
+        arr[Number(ii)][field] = field === 'harga_modal' ? Number(el.value) : el.value;
+      });
+    });
+  },
+
+  bindDeleteButtons() {
+    document.querySelectorAll('[data-delete-item]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const [scope, gi, ii] = btn.dataset.deleteItem.split('|');
+        const groupIndex = gi === '' ? null : Number(gi);
+        const arr = this.getItemsArray(scope, groupIndex);
+        arr.splice(Number(ii), 1);
+        this.renderCategory();
+      });
+    });
+  },
+
+  bindAddButtons() {
+    document.querySelectorAll('[data-add-item]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const [scope, gi] = btn.dataset.addItem.split('|');
+        const groupIndex = gi === '' ? null : Number(gi);
+        const arr = this.getItemsArray(scope, groupIndex);
+        arr.push({ name: 'Item Baru', harga_modal: 0, uom: 'unit' });
+        this.renderCategory();
+      });
+    });
+  },
+
+  async save() {
+    const btn = document.getElementById('btn-save-price-catalog');
+    btn.disabled = true;
+    btn.textContent = 'Menyimpan...';
+    const result = await Api.call('updatePriceCatalog', Api.withBusiness({
+      catalog: State.priceCatalog,
+      change_summary: 'Diperbarui lewat Manager Dashboard oleh ' + (State.user.name || State.user.email)
+    }));
+    btn.disabled = false;
+    btn.textContent = 'Simpan Semua Perubahan';
+
+    if (!result.success) { Snackbar.show(result.message || 'Gagal menyimpan katalog harga', 'error'); return; }
+    Snackbar.show('Katalog harga berhasil disimpan', 'success');
+  }
+};
+
+/* ---- 19c. Kelola Akun User (super_admin) ---- */
 const AdminUsers = {
   init() {
     document.getElementById('btn-open-new-user-form').addEventListener('click', () => {

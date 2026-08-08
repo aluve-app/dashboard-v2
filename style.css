@@ -704,3 +704,29 @@ h1, h2, h3, p { margin: 0; }
   .login-brand-logo { font-size: 26px; }
   .admin-form-row { flex-direction: column; }
 }
+
+/* ============================================================
+   17. PRICE MANAGER — tabel item per grup, input inline
+   ============================================================ */
+.price-group-card {
+  border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  padding: var(--space-md); margin-bottom: var(--space-md); background: var(--color-surface);
+}
+.price-group-header { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); flex-wrap: wrap; }
+.price-group-header input.form-input { font-weight: 700; max-width: 420px; }
+.price-group-code { font-size: 12px; font-weight: 700; color: var(--color-text-tertiary); }
+
+.data-table input.price-input, .data-table select.price-input {
+  width: 100%; padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--color-border);
+  background: var(--color-surface); color: var(--color-text-primary); font-size: 13px;
+}
+.data-table input.price-input:focus, .data-table select.price-input:focus {
+  outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px var(--color-primary-soft);
+}
+.data-table td.col-name { min-width: 220px; }
+.data-table td.col-price { min-width: 140px; }
+.data-table td.col-uom { min-width: 140px; }
+.data-table td.col-action { width: 40px; text-align: center; }
+.btn-row-delete { color: var(--color-danger); font-weight: 700; padding: 4px 8px; border-radius: 6px; }
+.btn-row-delete:hover { background: var(--color-danger-soft); }
+.btn-add-item-row { margin-top: var(--space-sm); }
