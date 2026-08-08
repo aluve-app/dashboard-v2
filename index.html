@@ -417,10 +417,15 @@
           <div class="admin-card">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--space-md); flex-wrap:wrap; gap: var(--space-sm);">
               <h3 style="margin-bottom:0;">Katalog Harga Estimator</h3>
-              <button id="btn-save-price-catalog" class="primary-button ripple" type="button">Simpan Semua Perubahan</button>
+              <div style="display:flex; gap: var(--space-sm); flex-wrap:wrap;">
+                <input id="price-excel-file" type="file" accept=".xlsx,.xls" hidden />
+                <button id="btn-export-price-excel" class="secondary-button ripple" type="button">Export Excel</button>
+                <button id="btn-upload-price-excel" class="secondary-button ripple" type="button">Upload Excel</button>
+                <button id="btn-save-price-catalog" class="primary-button ripple" type="button">Simpan Semua Perubahan</button>
+              </div>
             </div>
             <p class="detail-meta-text" style="margin-bottom: var(--space-md);">
-              Pilih kategori, edit harga/nama/satuan langsung di tabel, lalu klik "Simpan Semua Perubahan" — perubahan tidak tersimpan otomatis per baris.
+              Bisa diedit langsung di tabel, atau lewat Excel: klik "Export Excel" untuk unduh data saat ini, edit di Excel (jangan ubah nama kolom/sheet), lalu "Upload Excel" untuk memuat balik. Setelah edit (di tabel maupun Excel), tetap klik "Simpan Semua Perubahan" untuk menyimpan ke server.
             </p>
             <div id="price-category-list" class="lookup-category-list"></div>
             <div id="price-category-content"></div>
@@ -489,14 +494,30 @@
         <!-- ---- Pengaturan Estimator (super_admin) ---- -->
         <div id="admin-panel-settings" class="admin-panel">
           <div class="admin-card">
-            <h3>Pengaturan Kop Surat & Penawaran Estimator</h3>
+            <h3>Logo Perusahaan</h3>
+            <div class="logo-upload-row">
+              <img id="es-logo-preview" class="logo-preview" src="" alt="Logo" hidden />
+              <div id="es-logo-placeholder" class="logo-preview logo-preview-empty">Belum ada logo</div>
+              <div>
+                <input id="es-logo-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+                <button id="btn-upload-logo" class="secondary-button ripple" type="button">Upload Logo</button>
+                <p class="detail-meta-text" style="margin-top:6px;">PNG/JPG, latar transparan disarankan. Dipakai di kop surat PDF/Excel Estimator.</p>
+              </div>
+            </div>
+          </div>
+          <div class="admin-card">
+            <h3>Kop Surat &amp; Penawaran Estimator</h3>
             <div class="admin-form-row">
               <div class="filter-field"><label>Nama Perusahaan</label><input id="es-company-name" type="text" class="form-input" /></div>
-              <div class="filter-field"><label>Alamat</label><input id="es-address" type="text" class="form-input" /></div>
+              <div class="filter-field"><label>Telepon</label><input id="es-company-phone" type="text" class="form-input" /></div>
+            </div>
+            <div class="filter-field" style="margin-bottom: var(--space-md);">
+              <label>Alamat</label><input id="es-address" type="text" class="form-input" />
             </div>
             <div class="admin-form-row">
-              <div class="filter-field"><label>Nomor Rekening</label><input id="es-bank-account" type="text" class="form-input" /></div>
+              <div class="filter-field"><label>Info Rekening</label><input id="es-bank-account" type="text" class="form-input" /></div>
               <div class="filter-field"><label>Syarat Pembayaran</label><input id="es-payment-terms" type="text" class="form-input" /></div>
+              <div class="filter-field"><label>Masa Berlaku Penawaran (hari)</label><input id="es-validity-days" type="number" class="form-input" /></div>
             </div>
             <div class="filter-field" style="margin-bottom: var(--space-md);">
               <label>Syarat &amp; Ketentuan (default)</label>

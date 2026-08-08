@@ -730,3 +730,13 @@ h1, h2, h3, p { margin: 0; }
 .btn-row-delete { color: var(--color-danger); font-weight: 700; padding: 4px 8px; border-radius: 6px; }
 .btn-row-delete:hover { background: var(--color-danger-soft); }
 .btn-add-item-row { margin-top: var(--space-sm); }
+
+/* ============================================================
+   18. LOGO UPLOAD (Pengaturan Estimator)
+   ============================================================ */
+.logo-upload-row { display: flex; align-items: center; gap: var(--space-lg); }
+.logo-preview {
+  width: 96px; height: 96px; border-radius: var(--radius-md); object-fit: contain;
+  background: var(--color-surface-alt); border: 1px solid var(--color-border); flex-shrink: 0;
+}
+.logo-preview-empty { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--color-text-tertiary); text-align: center; padding: var(--space-sm); }

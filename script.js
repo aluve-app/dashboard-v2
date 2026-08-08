@@ -1163,6 +1163,9 @@ function uomOptionsHtml(selected) {
 const AdminPriceManager = {
   init() {
     document.getElementById('btn-save-price-catalog').addEventListener('click', () => this.save());
+    document.getElementById('btn-export-price-excel').addEventListener('click', () => this.exportExcel());
+    document.getElementById('btn-upload-price-excel').addEventListener('click', () => document.getElementById('price-excel-file').click());
+    document.getElementById('price-excel-file').addEventListener('change', (e) => this.importExcel(e.target.files[0]));
   },
 
   async load() {
@@ -1326,6 +1329,88 @@ const AdminPriceManager = {
     });
   },
 
+  /** Export katalog saat ini ke file Excel — 1 sheet per kategori */
+  exportExcel() {
+    if (!State.priceCatalog) { Snackbar.show('Data belum dimuat', 'error'); return; }
+    const wb = XLSX.utils.book_new();
+    const c = State.priceCatalog;
+
+    const tierRows = [['Tier Key', 'Tier Label', 'Group Code', 'Group Name', 'Item Name', 'Harga Modal', 'Satuan']];
+    Object.keys(c.brand_tiers || {}).forEach((tierKey) => {
+      const tier = c.brand_tiers[tierKey];
+      (tier.groups || []).forEach((g) => {
+        (g.items || []).forEach((item) => {
+          tierRows.push([tierKey, tier.label || '', g.code || '', g.name || '', item.name || '', item.harga_modal || 0, item.uom || '']);
+        });
+      });
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tierRows), 'Brand Tiers');
+
+    const glassRows = [['Item Name', 'Harga Modal', 'Satuan']];
+    (c.glass.items || []).forEach((item) => glassRows.push([item.name || '', item.harga_modal || 0, item.uom || '']));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(glassRows), 'Kaca');
+
+    const otherRows = [['Item Name', 'Harga Modal', 'Satuan']];
+    (c.other.items || []).forEach((item) => otherRows.push([item.name || '', item.harga_modal || 0, item.uom || '']));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(otherRows), 'Lainnya');
+
+    const sealant = c.sealant || { name: 'SEALANT', harga_modal: 0, uom: 'tube_estimated' };
+    const sealantRows = [['Name', 'Harga Modal', 'Satuan'], [sealant.name || '', sealant.harga_modal || 0, sealant.uom || '']];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sealantRows), 'Sealant');
+
+    XLSX.writeFile(wb, 'Katalog_Harga_' + State.businessId + '_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  },
+
+  /** Baca file Excel hasil export (atau format sama) lalu bangun ulang State.priceCatalog di browser
+      (belum tersimpan ke server sampai klik "Simpan Semua Perubahan") */
+  importExcel(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const sheetToRows = (name) => {
+          if (!wb.Sheets[name]) return [];
+          return XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' }).slice(1);
+        };
+
+        const tierRows = sheetToRows('Brand Tiers');
+        const newBrandTiers = {};
+        tierRows.forEach((row) => {
+          const [tierKey, tierLabel, groupCode, groupName, itemName, hargaModal, uom] = row;
+          if (!tierKey || !itemName) return;
+          if (!newBrandTiers[tierKey]) newBrandTiers[tierKey] = { label: tierLabel || tierKey, groups: [] };
+          let group = newBrandTiers[tierKey].groups.find((g) => g.code === groupCode && g.name === groupName);
+          if (!group) { group = { code: groupCode || '', name: groupName || '', items: [] }; newBrandTiers[tierKey].groups.push(group); }
+          group.items.push({ name: itemName, harga_modal: Number(hargaModal) || 0, uom: uom || 'unit' });
+        });
+
+        const glassItems = sheetToRows('Kaca').filter((r) => r[0]).map((r) => ({ name: r[0], harga_modal: Number(r[1]) || 0, uom: r[2] || 'unit' }));
+        const otherItems = sheetToRows('Lainnya').filter((r) => r[0]).map((r) => ({ name: r[0], harga_modal: Number(r[1]) || 0, uom: r[2] || 'unit' }));
+        const sealantRows = sheetToRows('Sealant');
+        const sealant = sealantRows.length > 0
+          ? { name: sealantRows[0][0] || 'SEALANT', harga_modal: Number(sealantRows[0][1]) || 0, uom: sealantRows[0][2] || 'tube_estimated' }
+          : State.priceCatalog.sealant;
+
+        if (Object.keys(newBrandTiers).length === 0 && glassItems.length === 0 && otherItems.length === 0) {
+          Snackbar.show('File Excel tidak sesuai format (sheet/kolom tidak ditemukan)', 'error');
+          return;
+        }
+
+        State.priceCatalog = { brand_tiers: newBrandTiers, glass: { items: glassItems }, other: { items: otherItems }, sealant };
+        State.priceCategory = Object.keys(newBrandTiers)[0] || 'glass';
+        this.renderCategoryList();
+        this.renderCategory();
+        Snackbar.show('Data dari Excel dimuat — cek dulu, lalu klik "Simpan Semua Perubahan" untuk simpan ke server', 'success');
+      } catch (err) {
+        Snackbar.show('Gagal membaca file Excel: ' + err.message, 'error');
+      } finally {
+        document.getElementById('price-excel-file').value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  },
+
   async save() {
     const btn = document.getElementById('btn-save-price-catalog');
     btn.disabled = true;
@@ -1441,6 +1526,8 @@ const AdminUsers = {
 const AdminSettings = {
   init() {
     document.getElementById('btn-save-settings').addEventListener('click', () => this.save());
+    document.getElementById('btn-upload-logo').addEventListener('click', () => document.getElementById('es-logo-file').click());
+    document.getElementById('es-logo-file').addEventListener('change', (e) => this.uploadLogo(e.target.files[0]));
   },
 
   async load() {
@@ -1449,19 +1536,68 @@ const AdminSettings = {
     if (!result.success) { Snackbar.show(result.message || 'Gagal memuat pengaturan', 'error'); return; }
     const d = result.data || {};
     document.getElementById('es-company-name').value = d.company_name || '';
-    document.getElementById('es-address').value = d.address || '';
-    document.getElementById('es-bank-account').value = d.bank_account || '';
+    document.getElementById('es-company-phone').value = d.company_phone || '';
+    document.getElementById('es-address').value = d.company_address || '';
+    document.getElementById('es-bank-account').value = d.bank_account_info || '';
     document.getElementById('es-payment-terms').value = d.payment_terms || '';
+    document.getElementById('es-validity-days').value = d.quotation_validity_days || 14;
     document.getElementById('es-terms').value = d.terms_and_conditions || '';
+    this.renderLogoPreview(d.logo_url || '');
+  },
+
+  renderLogoPreview(url) {
+    const img = document.getElementById('es-logo-preview');
+    const placeholder = document.getElementById('es-logo-placeholder');
+    if (url) {
+      img.src = url; img.hidden = false; placeholder.hidden = true;
+    } else {
+      img.hidden = true; placeholder.hidden = false;
+    }
+  },
+
+  async uploadLogo(file) {
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { Snackbar.show('Ukuran file maksimal 3MB', 'error'); return; }
+
+    const btn = document.getElementById('btn-upload-logo');
+    btn.disabled = true;
+    btn.textContent = 'Mengunggah...';
+
+    try {
+      const base64 = await this.fileToBase64(file);
+      const result = await Api.call('uploadEstimatorLogo', Api.withBusiness({ file_base64: base64, mime_type: file.type }));
+      if (!result.success) throw new Error(result.message || 'Gagal upload logo');
+      this.renderLogoPreview(result.data.logo_url);
+      Snackbar.show('Logo berhasil diunggah', 'success');
+    } catch (err) {
+      Snackbar.show(err.message || 'Gagal upload logo', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Upload Logo';
+      document.getElementById('es-logo-file').value = '';
+    }
+  },
+
+  fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   },
 
   async save() {
     const payload = Api.withBusiness({
-      company_name: document.getElementById('es-company-name').value.trim(),
-      address: document.getElementById('es-address').value.trim(),
-      bank_account: document.getElementById('es-bank-account').value.trim(),
-      payment_terms: document.getElementById('es-payment-terms').value.trim(),
-      terms_and_conditions: document.getElementById('es-terms').value.trim()
+      settings: {
+        company_name: document.getElementById('es-company-name').value.trim(),
+        company_phone: document.getElementById('es-company-phone').value.trim(),
+        company_address: document.getElementById('es-address').value.trim(),
+        bank_account_info: document.getElementById('es-bank-account').value.trim(),
+        payment_terms: document.getElementById('es-payment-terms').value.trim(),
+        quotation_validity_days: Number(document.getElementById('es-validity-days').value) || 14,
+        terms_and_conditions: document.getElementById('es-terms').value.trim()
+      }
     });
     const result = await Api.call('updateEstimatorSettings', payload);
     if (!result.success) { Snackbar.show(result.message || 'Gagal menyimpan pengaturan', 'error'); return; }
