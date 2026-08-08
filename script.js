@@ -266,6 +266,7 @@ const Login = {
 const BusinessSwitcher = {
   init() {
     const wrap = document.getElementById('business-switcher');
+    this.updateHeaderLogo();
     if (State.user.role !== 'super_admin') { wrap.hidden = true; return; }
     wrap.hidden = false;
     wrap.querySelectorAll('button').forEach((btn) => {
@@ -273,10 +274,15 @@ const BusinessSwitcher = {
       btn.addEventListener('click', () => this.switchTo(btn.dataset.business));
     });
   },
+  updateHeaderLogo() {
+    const logoEl = document.getElementById('header-logo');
+    logoEl.src = State.businessId === 'gbp' ? './assets/icons/logo-gbp.png' : './assets/icons/logo-aluve.png';
+  },
   switchTo(businessId) {
     if (businessId === State.businessId) return;
     State.businessId = businessId;
     document.querySelectorAll('#business-switcher button').forEach((b) => b.classList.toggle('active', b.dataset.business === businessId));
+    this.updateHeaderLogo();
 
     // Reset state yang bergantung bisnis, lalu muat ulang tab aktif + filter
     State.overviewData = null;
