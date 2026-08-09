@@ -1245,11 +1245,49 @@ const AdminLookup = {
     }
 
     el.innerHTML = values.map((v) =>
-      '<span class="lookup-chip">' + v + '<button type="button" data-value="' + v + '">✕</button></span>'
+      '<span class="lookup-chip" draggable="true" data-value="' + v + '"><span class="lookup-chip-drag">⠿</span>' + v + '<button type="button" data-value="' + v + '">✕</button></span>'
     ).join('');
-    el.querySelectorAll('button').forEach((btn) => {
+    el.querySelectorAll('.lookup-chip > button').forEach((btn) => {
       btn.addEventListener('click', () => this.removeValue(btn.dataset.value));
     });
+    this.bindChipDrag(el);
+  },
+
+  /** Drag-geser urutan chip — urutan ini yang dipakai Sales App untuk urutan dropdown, jadi langsung disimpan ke server begitu selesai digeser */
+  bindChipDrag(container) {
+    let draggedEl = null;
+    container.querySelectorAll('.lookup-chip').forEach((chip) => {
+      chip.addEventListener('dragstart', () => {
+        draggedEl = chip;
+        setTimeout(() => chip.classList.add('dragging'), 0);
+      });
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('dragging');
+        draggedEl = null;
+        this.saveReorderedValues();
+      });
+      chip.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!draggedEl || draggedEl === chip) return;
+        const rect = chip.getBoundingClientRect();
+        const insertBefore = (e.clientX - rect.left) < rect.width / 2;
+        container.insertBefore(draggedEl, insertBefore ? chip : chip.nextSibling);
+      });
+    });
+  },
+
+  async saveReorderedValues() {
+    const key = State.currentLookupCategory;
+    const el = document.getElementById('lookup-chip-list');
+    const newOrder = Array.from(el.querySelectorAll('.lookup-chip')).map((c) => c.dataset.value);
+
+    const oldOrder = State.lookupData[key] || [];
+    if (JSON.stringify(newOrder) === JSON.stringify(oldOrder)) return; // tidak ada perubahan urutan
+
+    State.lookupData[key] = newOrder;
+    const result = await Api.call('updateLookupOptions', Api.withBusiness({ lookup_type: key, values: newOrder }));
+    if (!result.success) { Snackbar.show(result.message || 'Gagal menyimpan urutan', 'error'); return; }
+    Snackbar.show('Urutan tersimpan — otomatis ikut berubah di Sales App', 'success');
   },
 
   async seedDefault() {

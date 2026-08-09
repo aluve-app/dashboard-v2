@@ -669,10 +669,12 @@ h1, h2, h3, p { margin: 0; }
 
 .lookup-chip-list { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-bottom: var(--space-md); min-height: 36px; }
 .lookup-chip {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 14px;
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 10px;
   border-radius: var(--radius-full); background: var(--color-surface-alt); border: 1px solid var(--color-border);
-  font-size: 13px; font-weight: 600;
+  font-size: 13px; font-weight: 600; cursor: grab;
 }
+.lookup-chip:active { cursor: grabbing; }
+.lookup-chip-drag { color: var(--color-text-tertiary); font-size: 12px; }
 .lookup-chip button { color: var(--color-text-tertiary); display: flex; }
 .lookup-chip button:hover { color: var(--color-danger); }
 .lookup-add-row { display: flex; gap: var(--space-sm); }
