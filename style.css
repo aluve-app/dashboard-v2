@@ -693,6 +693,12 @@ h1, h2, h3, p { margin: 0; }
 .business-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 .business-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
 .business-checkbox.is-locked { opacity: 0.5; }
+.business-primary-row {
+  margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface-alt); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+}
+.business-primary-row > label:first-child { font-size: 12.5px; font-weight: 700; display:block; margin-bottom: 6px; }
+.business-primary-row .detail-meta-text { margin-top: 6px; margin-bottom: 0; }
 
 .data-table .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .data-table .row-actions button {

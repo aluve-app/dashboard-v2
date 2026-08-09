@@ -534,6 +534,15 @@
                   <label class="business-checkbox"><input type="checkbox" id="nu-biz-gbp" value="gbp" /> GBP</label>
                 </div>
                 <p id="nu-biz-note" class="detail-meta-text" hidden>Role Estimator dikunci cuma bisa akses Aluve.</p>
+
+                <div id="nu-primary-row" class="business-primary-row" hidden>
+                  <label>Bisnis Utama (untuk login Sales App)</label>
+                  <div class="business-checkbox-row">
+                    <label class="business-checkbox"><input type="radio" name="nu-primary" id="nu-primary-aluve" value="aluve" checked /> Aluve</label>
+                    <label class="business-checkbox"><input type="radio" name="nu-primary" id="nu-primary-gbp" value="gbp" /> GBP</label>
+                  </div>
+                  <p class="detail-meta-text">Sales App belum bisa "pindah" bisnis sendiri — akun ini cuma bisa login ke Sales App dari bisnis utama yang dipilih di sini. Bisnis lainnya tetap kelihatan di Manager Dashboard.</p>
+                </div>
               </div>
               <div style="display:flex; gap: var(--space-sm);">
                 <button id="btn-submit-new-user" class="primary-button ripple" type="button">Buat Akun</button>

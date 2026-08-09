@@ -1641,7 +1641,15 @@ const AdminUsers = {
     document.getElementById('btn-cancel-new-user').addEventListener('click', () => this.closeForm());
     document.getElementById('btn-submit-new-user').addEventListener('click', () => this.submitForm());
     document.getElementById('nu-role').addEventListener('change', () => this.applyEstimatorLock());
+    document.getElementById('nu-biz-aluve').addEventListener('change', () => this.updatePrimaryVisibility());
+    document.getElementById('nu-biz-gbp').addEventListener('change', () => this.updatePrimaryVisibility());
     this.applyEstimatorLock();
+  },
+
+  /** Pilihan "Bisnis Utama" cuma relevan & ditampilkan kalau DUA bisnis dicentang sekaligus */
+  updatePrimaryVisibility() {
+    const bothChecked = document.getElementById('nu-biz-aluve').checked && document.getElementById('nu-biz-gbp').checked;
+    document.getElementById('nu-primary-row').hidden = !bothChecked;
   },
 
   /** Role "estimator" dikunci cuma boleh akses Aluve — cocokkan dengan guard rail di backend */
@@ -1653,6 +1661,7 @@ const AdminUsers = {
     gbpCheckbox.disabled = isEstimator;
     if (isEstimator) { gbpCheckbox.checked = false; aluveCheckbox.checked = true; }
     aluveCheckbox.disabled = isEstimator; // Aluve wajib nyala & tidak bisa dimatikan kalau estimator
+    this.updatePrimaryVisibility();
   },
 
   openForm(user) {
@@ -1670,6 +1679,9 @@ const AdminUsers = {
       const ids = user.business_ids || [user.business_id];
       document.getElementById('nu-biz-aluve').checked = ids.includes('aluve');
       document.getElementById('nu-biz-gbp').checked = ids.includes('gbp');
+      // Bisnis utama = business_id (elemen pertama business_ids, sesuai kontrak backend)
+      document.getElementById('nu-primary-gbp').checked = (user.business_id === 'gbp');
+      document.getElementById('nu-primary-aluve').checked = (user.business_id !== 'gbp');
       document.getElementById('btn-submit-new-user').textContent = 'Simpan Perubahan';
     } else {
       document.getElementById('nu-form-title').textContent = 'Akun Baru';
@@ -1679,6 +1691,8 @@ const AdminUsers = {
       document.getElementById('nu-role').value = 'sales';
       document.getElementById('nu-biz-aluve').checked = true;
       document.getElementById('nu-biz-gbp').checked = false;
+      document.getElementById('nu-primary-aluve').checked = true;
+      document.getElementById('nu-primary-gbp').checked = false;
       document.getElementById('btn-submit-new-user').textContent = 'Buat Akun';
     }
     this.applyEstimatorLock();
@@ -1690,9 +1704,16 @@ const AdminUsers = {
   },
 
   getCheckedBusinessIds() {
+    const aluveChecked = document.getElementById('nu-biz-aluve').checked;
+    const gbpChecked = document.getElementById('nu-biz-gbp').checked;
+    if (aluveChecked && gbpChecked) {
+      // Dua-duanya dicentang — urutan (siapa jadi "utama"/business_id) ikut radio
+      const gbpIsPrimary = document.getElementById('nu-primary-gbp').checked;
+      return gbpIsPrimary ? ['gbp', 'aluve'] : ['aluve', 'gbp'];
+    }
     const ids = [];
-    if (document.getElementById('nu-biz-aluve').checked) ids.push('aluve');
-    if (document.getElementById('nu-biz-gbp').checked) ids.push('gbp');
+    if (aluveChecked) ids.push('aluve');
+    if (gbpChecked) ids.push('gbp');
     return ids;
   },
 
