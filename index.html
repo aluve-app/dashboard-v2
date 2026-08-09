@@ -407,6 +407,7 @@
         <div class="admin-subnav no-print">
           <button type="button" class="active" data-admin-panel="lookup">Admin Lookup</button>
           <button type="button" data-admin-panel="price" id="admin-subnav-price" hidden>Price Manager</button>
+          <button type="button" data-admin-panel="projects" id="admin-subnav-projects" hidden>Kelola Project</button>
           <button type="button" data-admin-panel="users" id="admin-subnav-users" hidden>Kelola Akun User</button>
           <button type="button" data-admin-panel="settings" id="admin-subnav-settings" hidden>Pengaturan Estimator</button>
         </div>
@@ -453,6 +454,52 @@
           </div>
         </div>
 
+        <!-- ---- Kelola Project (super_admin) ---- -->
+        <div id="admin-panel-projects" class="admin-panel">
+          <div class="admin-card">
+            <h3>Kelola Project</h3>
+            <p class="detail-meta-text" style="margin-bottom: var(--space-md);">
+              Daftar seluruh project pada bisnis yang aktif (lihat switcher di kanan atas). Hapus project di sini memindahkannya ke "Sampah" (soft-delete) — datanya tidak langsung hilang permanen, tapi tidak akan muncul lagi di Sales App/Dashboard manapun.
+            </p>
+            <div class="explorer-toolbar" style="margin-bottom: var(--space-md);">
+              <div class="filter-field" style="min-width:240px;">
+                <label>Cari Nama Project / Lokasi</label>
+                <input id="kp-search" type="text" class="form-input" placeholder="Ketik untuk mencari..." />
+              </div>
+              <div class="filter-field">
+                <label>Sales</label>
+                <select id="kp-sales" class="form-select"><option value="">Semua Sales</option></select>
+              </div>
+              <div class="filter-field">
+                <label>Status Project</label>
+                <select id="kp-stage" class="form-select"><option value="">Semua Stage</option></select>
+              </div>
+              <button id="btn-kp-search" class="secondary-button ripple" type="button">Cari</button>
+            </div>
+
+            <div id="kp-loading" class="loading-container"><div class="loading-spinner"></div><p class="loading-container-text" data-base-text="Memuat data">Memuat data</p></div>
+
+            <div id="kp-table-wrap" hidden>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nama Project</th>
+                      <th>Sales</th>
+                      <th>Stage</th>
+                      <th>Nilai</th>
+                      <th>Update Terakhir</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="kp-table-body"></tbody>
+                </table>
+              </div>
+              <p id="kp-empty" class="empty-state" hidden>Tidak ada project yang cocok.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- ---- Kelola Akun User (super_admin) ---- -->
         <div id="admin-panel-users" class="admin-panel">
           <div class="admin-card">
@@ -462,7 +509,8 @@
             </div>
 
             <div id="new-user-form" class="admin-card" style="background: var(--color-surface-alt); margin-bottom: var(--space-lg);" hidden>
-              <h3>Akun Baru</h3>
+              <h3 id="nu-form-title">Akun Baru</h3>
+              <input type="hidden" id="nu-edit-uid" value="" />
               <div class="admin-form-row">
                 <div class="filter-field"><label>Nama</label><input id="nu-name" type="text" class="form-input" /></div>
                 <div class="filter-field"><label>Email</label><input id="nu-email" type="email" class="form-input" /></div>
@@ -477,14 +525,15 @@
                     <option value="super_admin">Super Admin</option>
                   </select>
                 </div>
-                <div class="filter-field">
-                  <label>Bisnis</label>
-                  <select id="nu-business" class="form-select">
-                    <option value="aluve">Aluve</option>
-                    <option value="gbp">GBP</option>
-                  </select>
-                </div>
                 <div class="filter-field"><label>Sales Code (opsional)</label><input id="nu-sales-code" type="text" class="form-input" placeholder="mis. SLS-03" /></div>
+              </div>
+              <div class="filter-field" style="margin-bottom: var(--space-md);">
+                <label>Akses Bisnis</label>
+                <div class="business-checkbox-row">
+                  <label class="business-checkbox"><input type="checkbox" id="nu-biz-aluve" value="aluve" checked /> Aluve</label>
+                  <label class="business-checkbox"><input type="checkbox" id="nu-biz-gbp" value="gbp" /> GBP</label>
+                </div>
+                <p id="nu-biz-note" class="detail-meta-text" hidden>Role Estimator dikunci cuma bisa akses Aluve.</p>
               </div>
               <div style="display:flex; gap: var(--space-sm);">
                 <button id="btn-submit-new-user" class="primary-button ripple" type="button">Buat Akun</button>

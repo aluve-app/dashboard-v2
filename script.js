@@ -335,9 +335,18 @@ const BusinessSwitcher = {
   init() {
     const wrap = document.getElementById('business-switcher');
     this.updateHeaderLogo();
-    if (State.user.role !== 'super_admin') { wrap.hidden = true; return; }
+
+    // Boleh switch kalau super_admin (bebas pilih bisnis manapun) ATAU
+    // akun biasa yang memang diberi akses >1 bisnis oleh super_admin
+    // (lewat Kelola Akun User).
+    const myBusinessIds = Array.isArray(State.user.business_ids) ? State.user.business_ids : [State.user.business_id];
+    const isSuperAdmin = State.user.role === 'super_admin';
+    if (!isSuperAdmin && myBusinessIds.length <= 1) { wrap.hidden = true; return; }
+
     wrap.hidden = false;
     wrap.querySelectorAll('button').forEach((btn) => {
+      const allowed = isSuperAdmin || myBusinessIds.includes(btn.dataset.business);
+      btn.hidden = !allowed;
       btn.classList.toggle('active', btn.dataset.business === State.businessId);
       btn.addEventListener('click', () => this.switchTo(btn.dataset.business));
     });
@@ -1077,19 +1086,114 @@ const AdminConsole = {
 
     const isSuperAdmin = State.user.role === 'super_admin';
     document.getElementById('admin-subnav-price').hidden = !isSuperAdmin;
+    document.getElementById('admin-subnav-projects').hidden = !isSuperAdmin;
     document.getElementById('admin-subnav-users').hidden = !isSuperAdmin;
     document.getElementById('admin-subnav-settings').hidden = !isSuperAdmin;
 
     AdminLookup.init();
-    if (isSuperAdmin) { AdminPriceManager.init(); AdminUsers.init(); AdminSettings.init(); }
+    if (isSuperAdmin) { AdminPriceManager.init(); AdminProjects.init(); AdminUsers.init(); AdminSettings.init(); }
   },
   goTo(panel) {
     document.querySelectorAll('.admin-subnav button').forEach((b) => b.classList.toggle('active', b.dataset.adminPanel === panel));
     document.querySelectorAll('.admin-panel').forEach((p) => p.classList.remove('active'));
     document.getElementById('admin-panel-' + panel).classList.add('active');
     if (panel === 'price' && !State.priceCatalogLoaded) AdminPriceManager.load();
+    if (panel === 'projects') AdminProjects.load();
     if (panel === 'users' && !State.usersLoaded) AdminUsers.load();
     if (panel === 'settings' && !State.settingsLoaded) AdminSettings.load();
+  }
+};
+
+/* ---- 19a-2. Kelola Project (super_admin) — hapus (soft-delete) project ---- */
+const AdminProjects = {
+  init() {
+    document.getElementById('btn-kp-search').addEventListener('click', () => this.load());
+    document.getElementById('kp-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.load(); });
+    this.optionsLoaded = false;
+  },
+
+  async loadFilterOptions() {
+    if (this.optionsLoaded) return;
+    this.optionsLoaded = true;
+
+    const [salesResult, lookupResult] = await Promise.all([
+      Api.call('readSalesList', Api.withBusiness({})),
+      Api.call('readLookupOptions', Api.withBusiness({}))
+    ]);
+
+    const salesSelect = document.getElementById('kp-sales');
+    if (salesResult.success) {
+      (salesResult.data || []).forEach((s) => {
+        const opt = document.createElement('option');
+        opt.value = s.sales_uid; opt.textContent = s.sales_name;
+        salesSelect.appendChild(opt);
+      });
+    }
+    const stageSelect = document.getElementById('kp-stage');
+    if (lookupResult.success) {
+      (lookupResult.data.pipeline_stage || []).forEach((s) => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s;
+        stageSelect.appendChild(opt);
+      });
+    }
+  },
+
+  async load() {
+    await this.loadFilterOptions();
+
+    document.getElementById('kp-loading').hidden = false;
+    LoadingIndicator.start('kp-loading');
+    document.getElementById('kp-table-wrap').hidden = true;
+
+    const payload = Api.withBusiness({});
+    const keyword = document.getElementById('kp-search').value.trim();
+    const salesUid = document.getElementById('kp-sales').value;
+    const stage = document.getElementById('kp-stage').value;
+    if (keyword) payload.keyword = keyword;
+    if (salesUid) payload.sales_uid = salesUid;
+    if (stage) payload.pipeline_stage = stage;
+
+    const result = await Api.call('readProjectExplorer', payload);
+
+    document.getElementById('kp-loading').hidden = true;
+    LoadingIndicator.stop('kp-loading');
+    document.getElementById('kp-table-wrap').hidden = false;
+
+    if (!result.success) { Snackbar.show(result.message || 'Gagal memuat daftar project', 'error'); return; }
+    this.render(result.data || []);
+  },
+
+  render(projects) {
+    const tbody = document.getElementById('kp-table-body');
+    const emptyEl = document.getElementById('kp-empty');
+    if (projects.length === 0) { tbody.innerHTML = ''; emptyEl.hidden = false; return; }
+    emptyEl.hidden = true;
+
+    tbody.innerHTML = projects.map((p) =>
+      '<tr>' +
+      '<td>' + p.project_name + '</td>' +
+      '<td>' + p.sales_name + '</td>' +
+      '<td>' + p.pipeline_stage + '</td>' +
+      '<td>' + (p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-') + '</td>' +
+      '<td>' + Utils.formatShortDate(p.date_last_activity) + '</td>' +
+      '<td class="row-actions"><button type="button" class="danger" data-delete-project="' + p.project_id + '" data-project-name="' + p.project_name + '">Hapus</button></td>' +
+      '</tr>'
+    ).join('');
+
+    tbody.querySelectorAll('[data-delete-project]').forEach((btn) => {
+      btn.addEventListener('click', () => this.deleteProject(btn.dataset.deleteProject, btn.dataset.projectName));
+    });
+  },
+
+  async deleteProject(projectId, projectName) {
+    if (!confirm('Hapus project "' + projectName + '"? Project akan dipindahkan ke Sampah — tidak muncul lagi di Sales App/Dashboard manapun.')) return;
+
+    const result = await Api.call('deleteProject', { project_id: projectId });
+    if (!result.success) { Snackbar.show(result.message || 'Gagal menghapus project', 'error'); return; }
+
+    Snackbar.show('Project dihapus', 'success');
+    this.load();
   }
 };
 
@@ -1530,14 +1634,66 @@ const AdminPriceManager = {
 
 /* ---- 19c. Kelola Akun User (super_admin) ---- */
 const AdminUsers = {
+  cachedUsers: [],
+
   init() {
-    document.getElementById('btn-open-new-user-form').addEventListener('click', () => {
-      document.getElementById('new-user-form').hidden = false;
-    });
-    document.getElementById('btn-cancel-new-user').addEventListener('click', () => {
-      document.getElementById('new-user-form').hidden = true;
-    });
-    document.getElementById('btn-submit-new-user').addEventListener('click', () => this.createUser());
+    document.getElementById('btn-open-new-user-form').addEventListener('click', () => this.openForm());
+    document.getElementById('btn-cancel-new-user').addEventListener('click', () => this.closeForm());
+    document.getElementById('btn-submit-new-user').addEventListener('click', () => this.submitForm());
+    document.getElementById('nu-role').addEventListener('change', () => this.applyEstimatorLock());
+    this.applyEstimatorLock();
+  },
+
+  /** Role "estimator" dikunci cuma boleh akses Aluve — cocokkan dengan guard rail di backend */
+  applyEstimatorLock() {
+    const isEstimator = document.getElementById('nu-role').value === 'estimator';
+    const gbpCheckbox = document.getElementById('nu-biz-gbp');
+    const aluveCheckbox = document.getElementById('nu-biz-aluve');
+    document.getElementById('nu-biz-note').hidden = !isEstimator;
+    gbpCheckbox.disabled = isEstimator;
+    if (isEstimator) { gbpCheckbox.checked = false; aluveCheckbox.checked = true; }
+    aluveCheckbox.disabled = isEstimator; // Aluve wajib nyala & tidak bisa dimatikan kalau estimator
+  },
+
+  openForm(user) {
+    document.getElementById('new-user-form').hidden = false;
+    document.getElementById('temp-password-display').hidden = true;
+
+    if (user) {
+      document.getElementById('nu-form-title').textContent = 'Edit Akun — ' + user.name;
+      document.getElementById('nu-edit-uid').value = user.uid;
+      document.getElementById('nu-name').value = user.name || '';
+      document.getElementById('nu-email').value = user.email || '';
+      document.getElementById('nu-email').disabled = true; // email tidak bisa diubah lewat form edit
+      document.getElementById('nu-role').value = user.role || 'sales';
+      document.getElementById('nu-sales-code').value = user.sales_code || '';
+      const ids = user.business_ids || [user.business_id];
+      document.getElementById('nu-biz-aluve').checked = ids.includes('aluve');
+      document.getElementById('nu-biz-gbp').checked = ids.includes('gbp');
+      document.getElementById('btn-submit-new-user').textContent = 'Simpan Perubahan';
+    } else {
+      document.getElementById('nu-form-title').textContent = 'Akun Baru';
+      document.getElementById('nu-edit-uid').value = '';
+      document.getElementById('nu-email').disabled = false;
+      ['nu-name', 'nu-email', 'nu-sales-code'].forEach((id) => { document.getElementById(id).value = ''; });
+      document.getElementById('nu-role').value = 'sales';
+      document.getElementById('nu-biz-aluve').checked = true;
+      document.getElementById('nu-biz-gbp').checked = false;
+      document.getElementById('btn-submit-new-user').textContent = 'Buat Akun';
+    }
+    this.applyEstimatorLock();
+    document.getElementById('new-user-form').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  },
+
+  closeForm() {
+    document.getElementById('new-user-form').hidden = true;
+  },
+
+  getCheckedBusinessIds() {
+    const ids = [];
+    if (document.getElementById('nu-biz-aluve').checked) ids.push('aluve');
+    if (document.getElementById('nu-biz-gbp').checked) ids.push('gbp');
+    return ids;
   },
 
   async load() {
@@ -1547,7 +1703,8 @@ const AdminUsers = {
 
     const result = await Api.call('listUserAccounts', {});
     if (!result.success) { Snackbar.show(result.message || 'Gagal memuat daftar akun', 'error'); return; }
-    this.render(result.data || []);
+    this.cachedUsers = result.data || [];
+    this.render(this.cachedUsers);
   },
 
   render(users) {
@@ -1557,33 +1714,70 @@ const AdminUsers = {
     tbody.innerHTML = users.map((u) => {
       const statusClass = u.status === 'Aktif' ? 'badge-status-aktif' : 'badge-status-nonaktif';
       const toggleLabel = u.status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan';
+      const bizIds = u.business_ids || [u.business_id];
+      const bizLabel = bizIds.map((b) => b.toUpperCase()).join(' + ');
+      const isSelf = u.uid === State.user.uid;
       return '<tr>' +
         '<td>' + u.name + '</td>' +
         '<td>' + u.email + '</td>' +
         '<td><span class="badge-role badge-role-' + u.role + '">' + u.role + '</span></td>' +
-        '<td>' + (u.business_id || '-').toUpperCase() + '</td>' +
+        '<td>' + bizLabel + '</td>' +
         '<td><span class="' + statusClass + '">' + u.status + '</span></td>' +
         '<td class="row-actions">' +
-        '<button type="button" data-action="toggle" data-uid="' + u.uid + '" data-status="' + u.status + '">' + toggleLabel + '</button>' +
-        '<button type="button" data-action="reset" data-uid="' + u.uid + '">Reset Password</button>' +
+        '<button type="button" data-action="edit" data-uid="' + u.uid + '">Edit</button>' +
+        (isSelf ? '' :
+          '<button type="button" data-action="toggle" data-uid="' + u.uid + '" data-status="' + u.status + '">' + toggleLabel + '</button>' +
+          '<button type="button" data-action="reset" data-uid="' + u.uid + '">Reset Password</button>' +
+          '<button type="button" class="danger" data-action="delete" data-uid="' + u.uid + '" data-name="' + u.name + '">Hapus</button>'
+        ) +
         '</td>' +
         '</tr>';
     }).join('');
 
+    tbody.querySelectorAll('button[data-action="edit"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const user = this.cachedUsers.find((u) => u.uid === btn.dataset.uid);
+        if (user) this.openForm(user);
+      });
+    });
     tbody.querySelectorAll('button[data-action="toggle"]').forEach((btn) => {
       btn.addEventListener('click', () => this.toggleStatus(btn.dataset.uid, btn.dataset.status));
     });
     tbody.querySelectorAll('button[data-action="reset"]').forEach((btn) => {
       btn.addEventListener('click', () => this.resetPassword(btn.dataset.uid));
     });
+    tbody.querySelectorAll('button[data-action="delete"]').forEach((btn) => {
+      btn.addEventListener('click', () => this.deleteAccount(btn.dataset.uid, btn.dataset.name));
+    });
   },
 
-  async createUser() {
+  async submitForm() {
+    const editUid = document.getElementById('nu-edit-uid').value;
+    const businessIds = this.getCheckedBusinessIds();
+    if (businessIds.length === 0) { Snackbar.show('Pilih minimal 1 bisnis', 'error'); return; }
+
+    if (editUid) {
+      const payload = {
+        uid: editUid,
+        name: document.getElementById('nu-name').value.trim(),
+        role: document.getElementById('nu-role').value,
+        business_ids: businessIds,
+        sales_code: document.getElementById('nu-sales-code').value.trim()
+      };
+      const result = await Api.call('updateUserRole', payload);
+      if (!result.success) { Snackbar.show(result.message || 'Gagal menyimpan perubahan', 'error'); return; }
+      Snackbar.show('Akun berhasil diperbarui', 'success');
+      this.closeForm();
+      this.load();
+      return;
+    }
+
     const payload = {
       name: document.getElementById('nu-name').value.trim(),
       email: document.getElementById('nu-email').value.trim(),
       role: document.getElementById('nu-role').value,
-      business_id: document.getElementById('nu-business').value,
+      business_id: businessIds[0],
+      business_ids: businessIds,
       sales_code: document.getElementById('nu-sales-code').value.trim()
     };
     if (!payload.name || !payload.email) { Snackbar.show('Nama dan email wajib diisi', 'error'); return; }
@@ -1591,9 +1785,7 @@ const AdminUsers = {
     const result = await Api.call('createUserAccount', payload);
     if (!result.success) { Snackbar.show(result.message || 'Gagal membuat akun', 'error'); return; }
 
-    document.getElementById('new-user-form').hidden = true;
-    ['nu-name', 'nu-email', 'nu-sales-code'].forEach((id) => { document.getElementById(id).value = ''; });
-
+    this.closeForm();
     this.showTempPassword(result.data.email, result.data.temp_password);
     this.load();
   },
@@ -1610,6 +1802,15 @@ const AdminUsers = {
     const result = await Api.call('resetUserPassword', { uid });
     if (!result.success) { Snackbar.show(result.message || 'Gagal reset password', 'error'); return; }
     this.showTempPassword(null, result.data.temp_password);
+  },
+
+  async deleteAccount(uid, name) {
+    if (!confirm('Hapus akun "' + name + '" PERMANEN? Akun tidak akan bisa login lagi. Project/aktivitas yang pernah dibuat akun ini TIDAK ikut terhapus. Tindakan ini tidak bisa dibatalkan.')) return;
+
+    const result = await Api.call('deleteUserAccount', { uid });
+    if (!result.success) { Snackbar.show(result.message || 'Gagal menghapus akun', 'error'); return; }
+    Snackbar.show('Akun berhasil dihapus', 'success');
+    this.load();
   },
 
   showTempPassword(email, password) {

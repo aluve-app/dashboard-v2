@@ -689,6 +689,11 @@ h1, h2, h3, p { margin: 0; }
 .badge-status-aktif { color: var(--color-success); font-weight: 700; font-size: 12.5px; }
 .badge-status-nonaktif { color: var(--color-danger); font-weight: 700; font-size: 12.5px; }
 
+.business-checkbox-row { display: flex; gap: var(--space-md); }
+.business-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.business-checkbox input:disabled { opacity: 0.5; cursor: not-allowed; }
+.business-checkbox.is-locked { opacity: 0.5; }
+
 .data-table .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .data-table .row-actions button {
   padding: 5px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 600;
