@@ -645,6 +645,18 @@ h1, h2, h3, p { margin: 0; }
 }
 .admin-subnav button.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .admin-panel { display: none; }
+
+/* Toggle Project Aktif/Sampah — SENGAJA nama class beda dari .admin-subnav
+   (walau gayanya sama) supaya tidak ikut ter-trigger event handler navigasi
+   utama Admin Console (pernah jadi bug: klik toggle ini sempat menyembunyikan
+   panelnya sendiri karena querySelectorAll('.admin-subnav button') dulu ikut
+   menangkap tombol-tombol ini juga). */
+.kp-mode-toggle { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.kp-mode-toggle button {
+  padding: 9px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  color: var(--color-text-secondary); background: var(--color-surface); border: 1.5px solid var(--color-border);
+}
+.kp-mode-toggle button.active { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .admin-panel.active { display: block; }
 
 .admin-card {

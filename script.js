@@ -1194,20 +1194,32 @@ const AdminProjects = {
 
     tbody.innerHTML = projects.map((p, index) => {
       const ageText = (p.lead_age_days === null || p.lead_age_days === undefined) ? '-' : p.lead_age_days + ' hari';
-      return '<tr>' +
+      const valueText = p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-';
+      return '<tr class="row-clickable" data-project-id="' + p.project_id + '" data-project-name="' + p.project_name + '" data-project-stage="' + p.pipeline_stage + '" data-project-value="' + valueText + '" data-project-address="' + (p.location_address || '-') + '" data-project-lead-source="' + (p.lead_source || '-') + '">' +
         '<td>' + (index + 1) + '</td>' +
         '<td>' + p.project_name + '</td>' +
         '<td>' + p.sales_name + '</td>' +
         '<td>' + p.pipeline_stage + '</td>' +
-        '<td>' + (p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-') + '</td>' +
+        '<td>' + valueText + '</td>' +
         '<td>' + ageText + '</td>' +
         '<td>' + Utils.formatShortDate(p.date_last_activity) + '</td>' +
         '<td class="row-actions"><button type="button" class="danger" data-delete-project="' + p.project_id + '" data-project-name="' + p.project_name + '">Hapus</button></td>' +
         '</tr>';
     }).join('');
 
+    tbody.querySelectorAll('tr[data-project-id]').forEach((row) => {
+      row.addEventListener('click', () => {
+        DetailModal.open(
+          row.dataset.projectId, row.dataset.projectName, row.dataset.projectStage,
+          row.dataset.projectValue, row.dataset.projectAddress, row.dataset.projectLeadSource
+        );
+      });
+    });
     tbody.querySelectorAll('[data-delete-project]').forEach((btn) => {
-      btn.addEventListener('click', () => this.deleteProject(btn.dataset.deleteProject, btn.dataset.projectName));
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation(); // supaya klik tombol Hapus tidak ikut membuka pop-up detail
+        this.deleteProject(btn.dataset.deleteProject, btn.dataset.projectName);
+      });
     });
   },
 
@@ -1243,8 +1255,9 @@ const AdminProjects = {
     if (projects.length === 0) { tbody.innerHTML = ''; emptyEl.hidden = false; return; }
     emptyEl.hidden = true;
 
-    tbody.innerHTML = projects.map((p, index) =>
-      '<tr>' +
+    tbody.innerHTML = projects.map((p, index) => {
+      const valueText = p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-';
+      return '<tr class="row-clickable" data-project-id="' + p.project_id + '" data-project-name="' + p.project_name + '" data-project-stage="' + p.pipeline_stage + '" data-project-value="' + valueText + '" data-project-address="' + (p.location_address || '-') + '" data-project-lead-source="' + (p.lead_source || '-') + '">' +
       '<td>' + (index + 1) + '</td>' +
       '<td>' + p.project_name + '</td>' +
       '<td>' + p.sales_name + '</td>' +
@@ -1255,14 +1268,28 @@ const AdminProjects = {
       '<button type="button" data-restore="' + p.project_id + '" data-name="' + p.project_name + '">Pulihkan</button>' +
       '<button type="button" class="danger" data-permanent-delete="' + p.project_id + '" data-name="' + p.project_name + '">Hapus Permanen</button>' +
       '</td>' +
-      '</tr>'
-    ).join('');
+      '</tr>';
+    }).join('');
 
+    tbody.querySelectorAll('tr[data-project-id]').forEach((row) => {
+      row.addEventListener('click', () => {
+        DetailModal.open(
+          row.dataset.projectId, row.dataset.projectName, row.dataset.projectStage,
+          row.dataset.projectValue, row.dataset.projectAddress, row.dataset.projectLeadSource
+        );
+      });
+    });
     tbody.querySelectorAll('[data-restore]').forEach((btn) => {
-      btn.addEventListener('click', () => this.restoreProject(btn.dataset.restore, btn.dataset.name));
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.restoreProject(btn.dataset.restore, btn.dataset.name);
+      });
     });
     tbody.querySelectorAll('[data-permanent-delete]').forEach((btn) => {
-      btn.addEventListener('click', () => this.permanentlyDelete(btn.dataset.permanentDelete, btn.dataset.name));
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.permanentlyDelete(btn.dataset.permanentDelete, btn.dataset.name);
+      });
     });
   },
 
