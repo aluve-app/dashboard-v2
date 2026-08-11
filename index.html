@@ -268,12 +268,14 @@
             <table class="data-table">
               <thead>
                 <tr>
+                  <th>#</th>
                   <th>Nama Project</th>
                   <th>Sales</th>
                   <th>Stage</th>
                   <th>Sumber Leads</th>
                   <th>Nilai</th>
                   <th>Lokasi</th>
+                  <th>Usia Leads</th>
                   <th>Update Terakhir</th>
                 </tr>
               </thead>
@@ -457,11 +459,18 @@
         <!-- ---- Kelola Project (super_admin) ---- -->
         <div id="admin-panel-projects" class="admin-panel">
           <div class="admin-card">
-            <h3>Kelola Project</h3>
-            <p class="detail-meta-text" style="margin-bottom: var(--space-md);">
-              Daftar seluruh project pada bisnis yang aktif (lihat switcher di kanan atas). Hapus project di sini memindahkannya ke "Sampah" (soft-delete) — datanya tidak langsung hilang permanen, tapi tidak akan muncul lagi di Sales App/Dashboard manapun.
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--space-sm); flex-wrap:wrap; gap: var(--space-sm);">
+              <h3 style="margin-bottom:0;">Kelola Project</h3>
+              <div class="admin-subnav" style="margin-bottom:0;">
+                <button type="button" id="kp-mode-active" class="active" data-kp-mode="active">Project Aktif</button>
+                <button type="button" id="kp-mode-trash" data-kp-mode="trash">🗑 Sampah</button>
+              </div>
+            </div>
+            <p id="kp-mode-desc" class="detail-meta-text" style="margin-bottom: var(--space-md);">
+              Daftar seluruh project pada bisnis yang aktif (lihat switcher di kanan atas). Hapus project di sini memindahkannya ke "Sampah" — datanya tidak langsung hilang permanen, tapi tidak akan muncul lagi di Sales App/Dashboard manapun.
             </p>
-            <div class="explorer-toolbar" style="margin-bottom: var(--space-md);">
+
+            <div id="kp-active-toolbar" class="explorer-toolbar" style="margin-bottom: var(--space-md);">
               <div class="filter-field" style="min-width:240px;">
                 <label>Cari Nama Project / Lokasi</label>
                 <input id="kp-search" type="text" class="form-input" placeholder="Ketik untuk mencari..." />
@@ -479,15 +488,18 @@
 
             <div id="kp-loading" class="loading-container"><div class="loading-spinner"></div><p class="loading-container-text" data-base-text="Memuat data">Memuat data</p></div>
 
+            <!-- Tabel Project Aktif -->
             <div id="kp-table-wrap" hidden>
               <div class="table-scroll">
                 <table class="data-table">
                   <thead>
                     <tr>
+                      <th>#</th>
                       <th>Nama Project</th>
                       <th>Sales</th>
                       <th>Stage</th>
                       <th>Nilai</th>
+                      <th>Usia Leads</th>
                       <th>Update Terakhir</th>
                       <th>Aksi</th>
                     </tr>
@@ -496,6 +508,27 @@
                 </table>
               </div>
               <p id="kp-empty" class="empty-state" hidden>Tidak ada project yang cocok.</p>
+            </div>
+
+            <!-- Tabel Sampah -->
+            <div id="kp-trash-wrap" hidden>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Nama Project</th>
+                      <th>Sales</th>
+                      <th>Stage Terakhir</th>
+                      <th>Dihapus Oleh</th>
+                      <th>Dihapus Pada</th>
+                      <th>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody id="kp-trash-table-body"></tbody>
+                </table>
+              </div>
+              <p id="kp-trash-empty" class="empty-state" hidden>Sampah kosong.</p>
             </div>
           </div>
         </div>

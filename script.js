@@ -767,16 +767,19 @@ const ExplorerPage = {
     if (projects.length === 0) { tbody.innerHTML = ''; emptyEl.hidden = false; return; }
     emptyEl.hidden = true;
 
-    tbody.innerHTML = projects.map((p) => {
+    tbody.innerHTML = projects.map((p, index) => {
       const valueText = p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-';
       const leadSource = p.lead_source || '-';
+      const ageText = (p.lead_age_days === null || p.lead_age_days === undefined) ? '-' : p.lead_age_days + ' hari';
       return '<tr data-project-id="' + p.project_id + '" data-project-name="' + p.project_name + '" data-project-stage="' + p.pipeline_stage + '" data-project-value="' + valueText + '" data-project-address="' + (p.location_address || '-') + '" data-project-lead-source="' + leadSource + '">' +
+        '<td>' + (index + 1) + '</td>' +
         '<td>' + p.project_name + '</td>' +
         '<td>' + p.sales_name + '</td>' +
         '<td>' + p.pipeline_stage + '</td>' +
         '<td>' + leadSource + '</td>' +
         '<td>' + valueText + '</td>' +
         '<td>' + (p.location_address || '-') + '</td>' +
+        '<td>' + ageText + '</td>' +
         '<td>' + Utils.formatShortDate(p.date_last_activity) + '</td>' +
         '</tr>';
     }).join('');
@@ -1106,10 +1109,27 @@ const AdminConsole = {
 
 /* ---- 19a-2. Kelola Project (super_admin) — hapus (soft-delete) project ---- */
 const AdminProjects = {
+  mode: 'active',
+
   init() {
     document.getElementById('btn-kp-search').addEventListener('click', () => this.load());
     document.getElementById('kp-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.load(); });
+    document.getElementById('kp-mode-active').addEventListener('click', () => this.switchMode('active'));
+    document.getElementById('kp-mode-trash').addEventListener('click', () => this.switchMode('trash'));
     this.optionsLoaded = false;
+  },
+
+  switchMode(mode) {
+    this.mode = mode;
+    document.getElementById('kp-mode-active').classList.toggle('active', mode === 'active');
+    document.getElementById('kp-mode-trash').classList.toggle('active', mode === 'trash');
+    document.getElementById('kp-active-toolbar').hidden = mode !== 'active';
+    document.getElementById('kp-table-wrap').hidden = true;
+    document.getElementById('kp-trash-wrap').hidden = true;
+    document.getElementById('kp-mode-desc').textContent = mode === 'active'
+      ? 'Daftar seluruh project pada bisnis yang aktif (lihat switcher di kanan atas). Hapus project di sini memindahkannya ke "Sampah" — datanya tidak langsung hilang permanen, tapi tidak akan muncul lagi di Sales App/Dashboard manapun.'
+      : 'Project yang sudah dihapus (soft-delete) dari Sales App/Kelola Project. Bisa dipulihkan kapan saja, atau dihapus PERMANEN (tidak bisa dibatalkan, sekalian menghapus aktivitas & foto terkait).';
+    this.load();
   },
 
   async loadFilterOptions() {
@@ -1140,6 +1160,8 @@ const AdminProjects = {
   },
 
   async load() {
+    if (this.mode === 'trash') return this.loadTrash();
+
     await this.loadFilterOptions();
 
     document.getElementById('kp-loading').hidden = false;
@@ -1170,16 +1192,19 @@ const AdminProjects = {
     if (projects.length === 0) { tbody.innerHTML = ''; emptyEl.hidden = false; return; }
     emptyEl.hidden = true;
 
-    tbody.innerHTML = projects.map((p) =>
-      '<tr>' +
-      '<td>' + p.project_name + '</td>' +
-      '<td>' + p.sales_name + '</td>' +
-      '<td>' + p.pipeline_stage + '</td>' +
-      '<td>' + (p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-') + '</td>' +
-      '<td>' + Utils.formatShortDate(p.date_last_activity) + '</td>' +
-      '<td class="row-actions"><button type="button" class="danger" data-delete-project="' + p.project_id + '" data-project-name="' + p.project_name + '">Hapus</button></td>' +
-      '</tr>'
-    ).join('');
+    tbody.innerHTML = projects.map((p, index) => {
+      const ageText = (p.lead_age_days === null || p.lead_age_days === undefined) ? '-' : p.lead_age_days + ' hari';
+      return '<tr>' +
+        '<td>' + (index + 1) + '</td>' +
+        '<td>' + p.project_name + '</td>' +
+        '<td>' + p.sales_name + '</td>' +
+        '<td>' + p.pipeline_stage + '</td>' +
+        '<td>' + (p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-') + '</td>' +
+        '<td>' + ageText + '</td>' +
+        '<td>' + Utils.formatShortDate(p.date_last_activity) + '</td>' +
+        '<td class="row-actions"><button type="button" class="danger" data-delete-project="' + p.project_id + '" data-project-name="' + p.project_name + '">Hapus</button></td>' +
+        '</tr>';
+    }).join('');
 
     tbody.querySelectorAll('[data-delete-project]').forEach((btn) => {
       btn.addEventListener('click', () => this.deleteProject(btn.dataset.deleteProject, btn.dataset.projectName));
@@ -1194,6 +1219,74 @@ const AdminProjects = {
 
     Snackbar.show('Project dihapus', 'success');
     this.load();
+  },
+
+  /* ---- Sampah ---- */
+  async loadTrash() {
+    document.getElementById('kp-loading').hidden = false;
+    LoadingIndicator.start('kp-loading');
+    document.getElementById('kp-trash-wrap').hidden = true;
+
+    const result = await Api.call('readDeletedProjects', Api.withBusiness({}));
+
+    document.getElementById('kp-loading').hidden = true;
+    LoadingIndicator.stop('kp-loading');
+    document.getElementById('kp-trash-wrap').hidden = false;
+
+    if (!result.success) { Snackbar.show(result.message || 'Gagal memuat Sampah', 'error'); return; }
+    this.renderTrash(result.data || []);
+  },
+
+  renderTrash(projects) {
+    const tbody = document.getElementById('kp-trash-table-body');
+    const emptyEl = document.getElementById('kp-trash-empty');
+    if (projects.length === 0) { tbody.innerHTML = ''; emptyEl.hidden = false; return; }
+    emptyEl.hidden = true;
+
+    tbody.innerHTML = projects.map((p, index) =>
+      '<tr>' +
+      '<td>' + (index + 1) + '</td>' +
+      '<td>' + p.project_name + '</td>' +
+      '<td>' + p.sales_name + '</td>' +
+      '<td>' + p.pipeline_stage + '</td>' +
+      '<td>' + p.deleted_by_name + '</td>' +
+      '<td>' + Utils.formatShortDate(p.deleted_at) + '</td>' +
+      '<td class="row-actions">' +
+      '<button type="button" data-restore="' + p.project_id + '" data-name="' + p.project_name + '">Pulihkan</button>' +
+      '<button type="button" class="danger" data-permanent-delete="' + p.project_id + '" data-name="' + p.project_name + '">Hapus Permanen</button>' +
+      '</td>' +
+      '</tr>'
+    ).join('');
+
+    tbody.querySelectorAll('[data-restore]').forEach((btn) => {
+      btn.addEventListener('click', () => this.restoreProject(btn.dataset.restore, btn.dataset.name));
+    });
+    tbody.querySelectorAll('[data-permanent-delete]').forEach((btn) => {
+      btn.addEventListener('click', () => this.permanentlyDelete(btn.dataset.permanentDelete, btn.dataset.name));
+    });
+  },
+
+  async restoreProject(projectId, projectName) {
+    if (!confirm('Pulihkan project "' + projectName + '"? Project akan muncul lagi normal di Sales App & Dashboard.')) return;
+
+    const result = await Api.call('restoreProject', { project_id: projectId });
+    if (!result.success) { Snackbar.show(result.message || 'Gagal memulihkan project', 'error'); return; }
+
+    Snackbar.show('Project dipulihkan', 'success');
+    this.loadTrash();
+  },
+
+  async permanentlyDelete(projectId, projectName) {
+    const confirmText = 'Hapus PERMANEN project "' + projectName + '"?\n\nSemua aktivitas & foto terkait IKUT TERHAPUS. TIDAK BISA DIBATALKAN.';
+    if (!confirm(confirmText)) return;
+    // Konfirmasi kedua khusus aksi permanen — mengurangi risiko salah klik
+    if (!confirm('Yakin sekali? Ketik OK di kotak berikutnya untuk benar-benar menghapus permanen.')) return;
+
+    const result = await Api.call('permanentlyDeleteProject', { project_id: projectId });
+    if (!result.success) { Snackbar.show(result.message || 'Gagal menghapus permanen', 'error'); return; }
+
+    Snackbar.show('Project dihapus permanen', 'success');
+    this.loadTrash();
   }
 };
 
