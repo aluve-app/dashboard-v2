@@ -1727,7 +1727,7 @@ const AdminUsers = {
       document.getElementById('nu-email').disabled = false;
       ['nu-name', 'nu-email', 'nu-sales-code'].forEach((id) => { document.getElementById(id).value = ''; });
       document.getElementById('nu-role').value = 'sales';
-      document.getElementById('nu-biz-aluve').checked = true;
+      document.getElementById('nu-biz-aluve').checked = false;
       document.getElementById('nu-biz-gbp').checked = false;
       document.getElementById('nu-primary-aluve').checked = true;
       document.getElementById('nu-primary-gbp').checked = false;
