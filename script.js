@@ -1358,7 +1358,6 @@ const AdminProjects = {
         '<td>' + displayName + '</td>' +
         '<td>' + (q.quotation_number || '-') + '</td>' +
         '<td>' + (q.status || '-') + '</td>' +
-        '<td>' + q.deleted_by_name + '</td>' +
         '<td>' + Utils.formatShortDate(q.deleted_at) + '</td>' +
         '<td class="row-actions">' +
         '<button type="button" data-restore-quotation="' + q.quotation_id + '" data-name="' + displayName + '">Pulihkan</button>' +
@@ -1378,7 +1377,7 @@ const AdminProjects = {
   async restoreQuotation(quotationId, name) {
     if (!confirm('Pulihkan quotation "' + name + '"? Akan muncul lagi normal di Project Estimator.')) return;
 
-    const result = await Api.call('restoreLegacyProject', { project_id: quotationId });
+    const result = await Api.call('restoreLegacyProjectAdmin', { project_id: quotationId });
     if (!result.success) { Snackbar.show(result.message || 'Gagal memulihkan quotation', 'error'); return; }
 
     Snackbar.show('Quotation dipulihkan', 'success');
@@ -1390,7 +1389,7 @@ const AdminProjects = {
     if (!confirm(confirmText)) return;
     if (!confirm('Yakin sekali? Konfirmasi sekali lagi untuk benar-benar menghapus permanen.')) return;
 
-    const result = await Api.call('permanentlyDeleteLegacyProject', { project_id: quotationId });
+    const result = await Api.call('permanentlyDeleteLegacyProjectAdmin', { project_id: quotationId });
     if (!result.success) { Snackbar.show(result.message || 'Gagal menghapus permanen', 'error'); return; }
 
     Snackbar.show('Quotation dihapus permanen', 'success');
