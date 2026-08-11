@@ -1110,12 +1110,15 @@ const AdminConsole = {
 /* ---- 19a-2. Kelola Project (super_admin) — hapus (soft-delete) project ---- */
 const AdminProjects = {
   mode: 'active',
+  trashType: 'project',
 
   init() {
     document.getElementById('btn-kp-search').addEventListener('click', () => this.load());
     document.getElementById('kp-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.load(); });
     document.getElementById('kp-mode-active').addEventListener('click', () => this.switchMode('active'));
     document.getElementById('kp-mode-trash').addEventListener('click', () => this.switchMode('trash'));
+    document.getElementById('kp-trash-type-project').addEventListener('click', () => this.switchTrashType('project'));
+    document.getElementById('kp-trash-type-quotation').addEventListener('click', () => this.switchTrashType('quotation'));
     this.optionsLoaded = false;
   },
 
@@ -1128,8 +1131,18 @@ const AdminProjects = {
     document.getElementById('kp-trash-wrap').hidden = true;
     document.getElementById('kp-mode-desc').textContent = mode === 'active'
       ? 'Daftar seluruh project pada bisnis yang aktif (lihat switcher di kanan atas). Hapus project di sini memindahkannya ke "Sampah" — datanya tidak langsung hilang permanen, tapi tidak akan muncul lagi di Sales App/Dashboard manapun.'
-      : 'Project yang sudah dihapus (soft-delete) dari Sales App/Kelola Project. Bisa dipulihkan kapan saja, atau dihapus PERMANEN (tidak bisa dibatalkan, sekalian menghapus aktivitas & foto terkait).';
+      : 'Berisi 2 jenis data yang dihapus: Project (Sales App) dan Quotation (Project Estimator) — pilih jenisnya di bawah. Bisa dipulihkan kapan saja, atau dihapus PERMANEN (tidak bisa dibatalkan).';
     this.load();
+  },
+
+  switchTrashType(type) {
+    this.trashType = type;
+    document.getElementById('kp-trash-type-project').classList.toggle('active', type === 'project');
+    document.getElementById('kp-trash-type-quotation').classList.toggle('active', type === 'quotation');
+    document.getElementById('kp-trash-project-section').hidden = type !== 'project';
+    document.getElementById('kp-trash-quotation-section').hidden = type !== 'quotation';
+    if (type === 'project') this.loadTrash();
+    else this.loadTrashQuotations();
   },
 
   async loadFilterOptions() {
@@ -1160,7 +1173,9 @@ const AdminProjects = {
   },
 
   async load() {
-    if (this.mode === 'trash') return this.loadTrash();
+    if (this.mode === 'trash') {
+      return this.trashType === 'quotation' ? this.loadTrashQuotations() : this.loadTrash();
+    }
 
     await this.loadFilterOptions();
 
@@ -1314,6 +1329,72 @@ const AdminProjects = {
 
     Snackbar.show('Project dihapus permanen', 'success');
     this.loadTrash();
+  },
+
+  /* ---- Sampah Quotation (Project Estimator) ---- */
+  async loadTrashQuotations() {
+    document.getElementById('kp-loading').hidden = false;
+    LoadingIndicator.start('kp-loading');
+
+    const result = await Api.call('readDeletedQuotations', Api.withBusiness({}));
+
+    document.getElementById('kp-loading').hidden = true;
+    LoadingIndicator.stop('kp-loading');
+
+    if (!result.success) { Snackbar.show(result.message || 'Gagal memuat Sampah quotation', 'error'); return; }
+    this.renderTrashQuotations(result.data || []);
+  },
+
+  renderTrashQuotations(quotations) {
+    const tbody = document.getElementById('kp-trash-quotation-table-body');
+    const emptyEl = document.getElementById('kp-trash-quotation-empty');
+    if (quotations.length === 0) { tbody.innerHTML = ''; emptyEl.hidden = false; return; }
+    emptyEl.hidden = true;
+
+    tbody.innerHTML = quotations.map((q, index) => {
+      const displayName = q.project_name + (q.client_name ? ' — ' + q.client_name : '');
+      return '<tr>' +
+        '<td>' + (index + 1) + '</td>' +
+        '<td>' + displayName + '</td>' +
+        '<td>' + (q.quotation_number || '-') + '</td>' +
+        '<td>' + (q.status || '-') + '</td>' +
+        '<td>' + q.deleted_by_name + '</td>' +
+        '<td>' + Utils.formatShortDate(q.deleted_at) + '</td>' +
+        '<td class="row-actions">' +
+        '<button type="button" data-restore-quotation="' + q.quotation_id + '" data-name="' + displayName + '">Pulihkan</button>' +
+        '<button type="button" class="danger" data-permanent-delete-quotation="' + q.quotation_id + '" data-name="' + displayName + '">Hapus Permanen</button>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+
+    tbody.querySelectorAll('[data-restore-quotation]').forEach((btn) => {
+      btn.addEventListener('click', () => this.restoreQuotation(btn.dataset.restoreQuotation, btn.dataset.name));
+    });
+    tbody.querySelectorAll('[data-permanent-delete-quotation]').forEach((btn) => {
+      btn.addEventListener('click', () => this.permanentlyDeleteQuotation(btn.dataset.permanentDeleteQuotation, btn.dataset.name));
+    });
+  },
+
+  async restoreQuotation(quotationId, name) {
+    if (!confirm('Pulihkan quotation "' + name + '"? Akan muncul lagi normal di Project Estimator.')) return;
+
+    const result = await Api.call('restoreLegacyProject', { project_id: quotationId });
+    if (!result.success) { Snackbar.show(result.message || 'Gagal memulihkan quotation', 'error'); return; }
+
+    Snackbar.show('Quotation dipulihkan', 'success');
+    this.loadTrashQuotations();
+  },
+
+  async permanentlyDeleteQuotation(quotationId, name) {
+    const confirmText = 'Hapus PERMANEN quotation "' + name + '"?\n\nTIDAK BISA DIBATALKAN.';
+    if (!confirm(confirmText)) return;
+    if (!confirm('Yakin sekali? Konfirmasi sekali lagi untuk benar-benar menghapus permanen.')) return;
+
+    const result = await Api.call('permanentlyDeleteLegacyProject', { project_id: quotationId });
+    if (!result.success) { Snackbar.show(result.message || 'Gagal menghapus permanen', 'error'); return; }
+
+    Snackbar.show('Quotation dihapus permanen', 'success');
+    this.loadTrashQuotations();
   }
 };
 

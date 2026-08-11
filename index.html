@@ -512,23 +512,50 @@
 
             <!-- Tabel Sampah -->
             <div id="kp-trash-wrap" hidden>
-              <div class="table-scroll">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Nama Project</th>
-                      <th>Sales</th>
-                      <th>Stage Terakhir</th>
-                      <th>Dihapus Oleh</th>
-                      <th>Dihapus Pada</th>
-                      <th>Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody id="kp-trash-table-body"></tbody>
-                </table>
+              <div class="kp-mode-toggle" style="margin-bottom: var(--space-md);">
+                <button type="button" id="kp-trash-type-project" class="active" data-kp-trash-type="project">Project (Sales App)</button>
+                <button type="button" id="kp-trash-type-quotation" data-kp-trash-type="quotation">Quotation (Estimator)</button>
               </div>
-              <p id="kp-trash-empty" class="empty-state" hidden>Sampah kosong.</p>
+
+              <div id="kp-trash-project-section">
+                <div class="table-scroll">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Nama Project</th>
+                        <th>Sales</th>
+                        <th>Stage Terakhir</th>
+                        <th>Dihapus Oleh</th>
+                        <th>Dihapus Pada</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="kp-trash-table-body"></tbody>
+                  </table>
+                </div>
+                <p id="kp-trash-empty" class="empty-state" hidden>Sampah project kosong.</p>
+              </div>
+
+              <div id="kp-trash-quotation-section" hidden>
+                <div class="table-scroll">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Nama Project / Client</th>
+                        <th>No. Quotation</th>
+                        <th>Status</th>
+                        <th>Dihapus Oleh</th>
+                        <th>Dihapus Pada</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="kp-trash-quotation-table-body"></tbody>
+                  </table>
+                </div>
+                <p id="kp-trash-quotation-empty" class="empty-state" hidden>Sampah quotation kosong.</p>
+              </div>
             </div>
           </div>
         </div>
