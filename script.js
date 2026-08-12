@@ -47,11 +47,16 @@ const LOOKUP_CATEGORIES = [
   { key: 'contact_role', label: 'Role Kontak' }
 ];
 
-// Nilai default yang SAMA PERSIS dipakai Sales App sebagai fallback saat
-// Firestore belum ada datanya (LookupCache.DEFAULTS di script.js Sales App).
-// Dipakai tombol "Isi dari Default" di Admin Lookup — supaya Firestore-nya
-// benar-benar terisi, bukan cuma tampil karena fallback client-side.
-const LOOKUP_DEFAULTS = {
+// Nilai default yang SAMA PERSIS dipakai Sales App masing-masing sebagai
+// fallback saat Firestore belum ada datanya (LookupCache.DEFAULTS di
+// script.js Sales App Aluve & GBP). Dipakai tombol "Isi dari Default" di
+// Admin Lookup — supaya Firestore-nya benar-benar terisi, bukan cuma
+// tampil karena fallback client-side.
+// PENTING: dipisah per business_id — sebelumnya cuma ada 1 set data
+// (isinya Aluve) dipakai untuk kedua bisnis, jadi kalau lagi buka Admin
+// Lookup bisnis GBP terus klik "Isi dari Default", yang kepakai malah
+// istilah-istilah Aluve. Sekarang dipilih sesuai State.businessId aktif.
+const LOOKUP_DEFAULTS_ALUVE = {
   activity_type: ['Kunjungan Pertama', 'Follow Up', 'Presentasi Produk', 'Negosiasi', 'Survey Lokasi', 'Lainnya'],
   pipeline_stage: ['New Visit', 'Perlu Estimasi Harga', 'Penawaran Siap', 'Won', 'Lost'],
   activity_temperature: ['Cold', 'Warm', 'Hot'],
@@ -62,6 +67,22 @@ const LOOKUP_DEFAULTS = {
   lost_reason: ['Harga Kalah Bersaing', 'Pilih Vendor Lain', 'Project Dibatalkan', 'Tidak Ada Kabar'],
   contact_role: ['Pemilik', 'Arsitek', 'Kontraktor', 'Interior Designer', 'Lainnya']
 };
+
+const LOOKUP_DEFAULTS_GBP = {
+  activity_type: ['Kunjungan Pertama', 'Follow Up', 'Presentasi Mesin', 'Negosiasi Kemitraan', 'Survey Lokasi', 'Lainnya'],
+  pipeline_stage: ['New Visit', 'Survey & Diskusi Kebutuhan', 'Penawaran Terkirim', 'Won', 'Lost'],
+  activity_temperature: ['Cold', 'Warm', 'Hot'],
+  project_category: ['Mesin Aluminium', 'Mesin UPVC'],
+  construction_stage: ['Belum Punya Mesin Otomatis', 'Pakai Mesin Kompetitor / Mau Upgrade', 'Proses Onboarding/Instalasi', 'Sudah Jadi Partner Aktif'],
+  product_type: ['Mesin Cutting', 'Mesin Welding', 'Mesin CNC Machining', 'Profil Aluminium', 'Aksesoris Kusen'],
+  lead_source: ['Canvassing', 'Referral', 'Website', 'Pameran'],
+  lost_reason: ['Harga Kalah Bersaing', 'Pilih Vendor Lain', 'Belum Ada Anggaran', 'Tidak Ada Kabar'],
+  contact_role: ['Pemilik Usaha', 'Manajer Produksi', 'Kepala Bengkel/Workshop', 'Lainnya']
+};
+
+function getLookupDefaults() {
+  return State.businessId === 'gbp' ? LOOKUP_DEFAULTS_GBP : LOOKUP_DEFAULTS_ALUVE;
+}
 
 /* ============================================================
    2. API — semua request pakai Bearer token Firebase Auth
@@ -1435,7 +1456,7 @@ const AdminLookup = {
     warnEl.hidden = key !== 'pipeline_stage';
 
     if (values.length === 0) {
-      const hasDefault = !!LOOKUP_DEFAULTS[key];
+      const hasDefault = !!getLookupDefaults()[key];
       el.innerHTML = '<p class="empty-state" style="padding: var(--space-sm) 0; width:100%;">Belum ada pilihan untuk kategori ini' +
         (hasDefault ? ' — datanya memang belum pernah diisi di server (bukan error tampilan).' : '.') + '</p>' +
         (hasDefault ? '<button type="button" id="btn-lookup-seed-default" class="secondary-button ripple">Isi dari Default Sales App</button>' : '');
@@ -1492,7 +1513,7 @@ const AdminLookup = {
 
   async seedDefault() {
     const key = State.currentLookupCategory;
-    const defaults = LOOKUP_DEFAULTS[key];
+    const defaults = getLookupDefaults()[key];
     if (!defaults) return;
 
     const result = await Api.call('updateLookupOptions', Api.withBusiness({ lookup_type: key, values: defaults }));
