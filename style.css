@@ -687,6 +687,10 @@ h1, h2, h3, p { margin: 0; }
 }
 .lookup-chip:active { cursor: grabbing; }
 .lookup-chip-drag { color: var(--color-text-tertiary); font-size: 12px; }
+
+/* Ikon tombol Refresh berputar saat sedang memuat ulang data */
+#btn-refresh-icon.spinning { animation: spin-refresh 0.7s linear infinite; }
+@keyframes spin-refresh { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .lookup-chip button { color: var(--color-text-tertiary); display: flex; }
 .lookup-chip button:hover { color: var(--color-danger); }
 .lookup-add-row { display: flex; gap: var(--space-sm); }

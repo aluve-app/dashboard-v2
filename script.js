@@ -47,16 +47,11 @@ const LOOKUP_CATEGORIES = [
   { key: 'contact_role', label: 'Role Kontak' }
 ];
 
-// Nilai default yang SAMA PERSIS dipakai Sales App masing-masing sebagai
-// fallback saat Firestore belum ada datanya (LookupCache.DEFAULTS di
-// script.js Sales App Aluve & GBP). Dipakai tombol "Isi dari Default" di
-// Admin Lookup — supaya Firestore-nya benar-benar terisi, bukan cuma
-// tampil karena fallback client-side.
-// PENTING: dipisah per business_id — sebelumnya cuma ada 1 set data
-// (isinya Aluve) dipakai untuk kedua bisnis, jadi kalau lagi buka Admin
-// Lookup bisnis GBP terus klik "Isi dari Default", yang kepakai malah
-// istilah-istilah Aluve. Sekarang dipilih sesuai State.businessId aktif.
-const LOOKUP_DEFAULTS_ALUVE = {
+// Nilai default yang SAMA PERSIS dipakai Sales App sebagai fallback saat
+// Firestore belum ada datanya (LookupCache.DEFAULTS di script.js Sales App).
+// Dipakai tombol "Isi dari Default" di Admin Lookup — supaya Firestore-nya
+// benar-benar terisi, bukan cuma tampil karena fallback client-side.
+const LOOKUP_DEFAULTS = {
   activity_type: ['Kunjungan Pertama', 'Follow Up', 'Presentasi Produk', 'Negosiasi', 'Survey Lokasi', 'Lainnya'],
   pipeline_stage: ['New Visit', 'Perlu Estimasi Harga', 'Penawaran Siap', 'Won', 'Lost'],
   activity_temperature: ['Cold', 'Warm', 'Hot'],
@@ -67,22 +62,6 @@ const LOOKUP_DEFAULTS_ALUVE = {
   lost_reason: ['Harga Kalah Bersaing', 'Pilih Vendor Lain', 'Project Dibatalkan', 'Tidak Ada Kabar'],
   contact_role: ['Pemilik', 'Arsitek', 'Kontraktor', 'Interior Designer', 'Lainnya']
 };
-
-const LOOKUP_DEFAULTS_GBP = {
-  activity_type: ['Kunjungan Pertama', 'Follow Up', 'Presentasi Mesin', 'Negosiasi Kemitraan', 'Survey Lokasi', 'Lainnya'],
-  pipeline_stage: ['New Visit', 'Survey & Diskusi Kebutuhan', 'Penawaran Terkirim', 'Won', 'Lost'],
-  activity_temperature: ['Cold', 'Warm', 'Hot'],
-  project_category: ['Mesin Aluminium', 'Mesin UPVC'],
-  construction_stage: ['Belum Punya Mesin Otomatis', 'Pakai Mesin Kompetitor / Mau Upgrade', 'Proses Onboarding/Instalasi', 'Sudah Jadi Partner Aktif'],
-  product_type: ['Mesin Cutting', 'Mesin Welding', 'Mesin CNC Machining', 'Profil Aluminium', 'Aksesoris Kusen'],
-  lead_source: ['Canvassing', 'Referral', 'Website', 'Pameran'],
-  lost_reason: ['Harga Kalah Bersaing', 'Pilih Vendor Lain', 'Belum Ada Anggaran', 'Tidak Ada Kabar'],
-  contact_role: ['Pemilik Usaha', 'Manajer Produksi', 'Kepala Bengkel/Workshop', 'Lainnya']
-};
-
-function getLookupDefaults() {
-  return State.businessId === 'gbp' ? LOOKUP_DEFAULTS_GBP : LOOKUP_DEFAULTS_ALUVE;
-}
 
 /* ============================================================
    2. API — semua request pakai Bearer token Firebase Auth
@@ -97,11 +76,23 @@ const Api = {
       },
       body: JSON.stringify(payload || {})
     });
+    this.lastStatus = res.status; // dibaca oleh call() untuk deteksi token basi, tanpa ubah kontrak rawCall
     return res.json();
   },
-  async call(action, payload) {
+  async call(action, payload, _isRetry) {
     try {
-      return await this.rawCall(action, payload);
+      const body = await this.rawCall(action, payload);
+
+      // Token basi (biasanya kadaluarsa tiap 1 jam) — coba perpanjang diam-diam
+      // pakai sesi tersimpan (kalau "Remember me" pernah dicentang), lalu ulangi
+      // SEKALI request ini. Supaya kerja lama di Dashboard (>1 jam terbuka)
+      // tidak tiba-tiba gagal/lempar ke login, cukup diam-diam nyambung lagi.
+      if (this.lastStatus === 401 && !_isRetry) {
+        const renewed = await Login.trySilentTokenRenewal();
+        if (renewed) return this.call(action, payload, true);
+      }
+
+      return body;
     } catch (err) {
       return { success: false, message: 'Gagal terhubung ke server. Cek koneksi internet.' };
     }
@@ -249,7 +240,8 @@ const Login = {
   },
 
   /** Tukar refresh token tersimpan dengan idToken baru — dipakai untuk login otomatis */
-  async trySilentLogin() {
+  /** Cuma perpanjang idToken pakai refresh token tersimpan — TIDAK mengubah tampilan (dipakai Api.call saat token basi di tengah sesi). Balikan: true kalau berhasil. */
+  async trySilentTokenRenewal() {
     const refreshToken = localStorage.getItem(this.REFRESH_KEY);
     if (!refreshToken) return false;
     try {
@@ -262,9 +254,20 @@ const Login = {
       if (!res.ok) throw new Error('Sesi tersimpan sudah tidak berlaku');
 
       State.idToken = json.id_token;
-      // Google me-rotasi refresh token tiap dipakai — simpan yang baru
       localStorage.setItem(this.REFRESH_KEY, json.refresh_token);
+      return true;
+    } catch (err) {
+      localStorage.removeItem(this.REFRESH_KEY);
+      return false;
+    }
+  },
 
+  /** Dipanggil sekali di awal (page load) — perpanjang token LALU tampilkan Dashboard-nya */
+  async trySilentLogin() {
+    const renewed = await this.trySilentTokenRenewal();
+    if (!renewed) return false;
+
+    try {
       const profileResult = await Api.rawCall('readMyProfile', {});
       if (!profileResult.success || !['manager', 'super_admin'].includes(profileResult.data.role)) {
         throw new Error('Akun tidak valid untuk Manager Dashboard');
@@ -1067,6 +1070,58 @@ const LogPage = {
 /* ============================================================
    18. EXPORT (Excel + Print)
    ============================================================ */
+/* ============================================================
+   18b. REFRESH MANUAL — muat ulang data tab yang sedang dibuka lewat
+   AJAX (BUKAN reload halaman), jadi tidak pernah memicu layar login.
+   ============================================================ */
+const RefreshManager = {
+  init() {
+    document.getElementById('btn-refresh-data').addEventListener('click', () => this.refresh());
+  },
+
+  async refresh() {
+    const btn = document.getElementById('btn-refresh-data');
+    const icon = document.getElementById('btn-refresh-icon');
+    if (btn.disabled) return;
+
+    btn.disabled = true;
+    icon.classList.add('spinning');
+    try {
+      await this.refreshCurrentTab();
+      Snackbar.show('Data diperbarui', 'success');
+    } catch (err) {
+      Snackbar.show('Gagal memuat ulang data', 'error');
+    } finally {
+      btn.disabled = false;
+      icon.classList.remove('spinning');
+    }
+  },
+
+  refreshCurrentTab() {
+    const tab = State.currentTab;
+    if (tab === 'overview') return OverviewPage.load();
+    if (tab === 'explorer') return ExplorerPage.load();
+    if (tab === 'performance') return PerformancePage.load();
+    if (tab === 'log') return LogPage.load();
+    if (tab === 'admin') return this.refreshAdminPanel();
+    return Promise.resolve();
+  },
+
+  refreshAdminPanel() {
+    const activePanel = document.querySelector('.admin-panel.active');
+    if (!activePanel) return Promise.resolve();
+    const mapping = {
+      'admin-panel-lookup': () => AdminLookup.load(),
+      'admin-panel-price': () => AdminPriceManager.load(),
+      'admin-panel-projects': () => AdminProjects.load(),
+      'admin-panel-users': () => AdminUsers.load(),
+      'admin-panel-settings': () => AdminSettings.load()
+    };
+    const fn = mapping[activePanel.id];
+    return fn ? fn() : Promise.resolve();
+  }
+};
+
 const ExportManager = {
   init() {
     document.getElementById('btn-export-excel').addEventListener('click', () => this.exportExcel());
@@ -1456,7 +1511,7 @@ const AdminLookup = {
     warnEl.hidden = key !== 'pipeline_stage';
 
     if (values.length === 0) {
-      const hasDefault = !!getLookupDefaults()[key];
+      const hasDefault = !!LOOKUP_DEFAULTS[key];
       el.innerHTML = '<p class="empty-state" style="padding: var(--space-sm) 0; width:100%;">Belum ada pilihan untuk kategori ini' +
         (hasDefault ? ' — datanya memang belum pernah diisi di server (bukan error tampilan).' : '.') + '</p>' +
         (hasDefault ? '<button type="button" id="btn-lookup-seed-default" class="secondary-button ripple">Isi dari Default Sales App</button>' : '');
@@ -1513,7 +1568,7 @@ const AdminLookup = {
 
   async seedDefault() {
     const key = State.currentLookupCategory;
-    const defaults = getLookupDefaults()[key];
+    const defaults = LOOKUP_DEFAULTS[key];
     if (!defaults) return;
 
     const result = await Api.call('updateLookupOptions', Api.withBusiness({ lookup_type: key, values: defaults }));
@@ -2268,6 +2323,7 @@ function initApp() {
   Snackbar.init();
   ThemeToggle.init();
   TabNav.init();
+  RefreshManager.init();
   ExportManager.init();
   OverviewPage.initGranularityToggle();
   ExplorerPage.init();
