@@ -22,7 +22,7 @@ const State = {
   businessId: 'aluve', // dipakai super_admin untuk switcher; manager terkunci ke business_id akun sendiri
 
   currentTab: 'overview',
-  filters: { date_from: '', date_to: '', sales_uid: '', pipeline_stage: '', lead_source: '', product_type: '' },
+  filters: { date_from: '', date_to: '', sales_uid: '', pipeline_stage: '', lead_source: '', product_type: '', temperature: '' },
   trendGranularity: 'daily',
   overviewData: null,
   charts: {},
@@ -181,7 +181,16 @@ const Utils = {
   },
   chartPalette: ['#1E3A8A', '#16A34A', '#F59E0B', '#DC2626', '#0EA5E9', '#8B5CF6', '#EC4899', '#64748B'],
   chartTextColor() { return ThemeToggle.isDark() ? '#9CA3AF' : '#6B7280'; },
-  chartGridColor() { return ThemeToggle.isDark() ? '#2E3036' : '#E5E7EB'; }
+  chartGridColor() { return ThemeToggle.isDark() ? '#2E3036' : '#E5E7EB'; },
+  // Badge suhu lead — dipakai di tabel Project Explorer, Log Aktivitas,
+  // dan timeline detail project. Emoji sama persis dengan yang dipakai
+  // di dropdown filter, supaya konsisten di seluruh Dashboard.
+  temperatureBadge(temp) {
+    const map = { Hot: { emoji: '🔥', cls: 'temp-hot' }, Warm: { emoji: '🌤️', cls: 'temp-warm' }, Cold: { emoji: '❄️', cls: 'temp-cold' } };
+    const t = map[temp];
+    if (!t) return temp;
+    return '<span class="temp-badge ' + t.cls + '">' + t.emoji + ' ' + temp + '</span>';
+  }
 };
 
 /* ============================================================
@@ -441,16 +450,31 @@ const FilterBar = {
       State.filters.pipeline_stage = document.getElementById('filter-stage').value;
       State.filters.lead_source = document.getElementById('filter-lead-source').value;
       State.filters.product_type = document.getElementById('filter-product').value;
-      OverviewPage.load();
+      State.filters.temperature = document.getElementById('filter-temperature').value;
+      this.forceReloadCurrentTab();
     });
 
     document.getElementById('btn-reset-filter').addEventListener('click', () => {
-      ['filter-date-from', 'filter-date-to', 'filter-sales', 'filter-stage', 'filter-lead-source', 'filter-product'].forEach((id) => {
+      ['filter-date-from', 'filter-date-to', 'filter-sales', 'filter-stage', 'filter-lead-source', 'filter-product', 'filter-temperature'].forEach((id) => {
         document.getElementById(id).value = '';
       });
-      State.filters = { date_from: '', date_to: '', sales_uid: '', pipeline_stage: '', lead_source: '', product_type: '' };
-      OverviewPage.load();
+      State.filters = { date_from: '', date_to: '', sales_uid: '', pipeline_stage: '', lead_source: '', product_type: '', temperature: '' };
+      this.forceReloadCurrentTab();
     });
+  },
+
+  // Filter global sekarang berlaku untuk SEMUA tab (dulu tombol "Terapkan
+  // Filter" cuma memuat ulang Overview walau sedang di tab lain). Reset
+  // semua flag "sudah dimuat" supaya tab manapun yang sedang aktif
+  // langsung diambil ulang datanya dengan filter terbaru, dan tab lain
+  // otomatis diambil ulang saat nanti dibuka.
+  forceReloadCurrentTab() {
+    State.overviewData = null;
+    State.explorerLoaded = false;
+    State.performanceLoaded = false;
+    State.logLoaded = false;
+    State.logOffset = 0;
+    TabNav.reload(State.currentTab);
   },
 
   async reloadOptions() {
@@ -504,7 +528,7 @@ const OverviewPage = {
   async load() {
     const isDefaultFilter = !State.filters.date_from && !State.filters.date_to &&
       !State.filters.sales_uid && !State.filters.pipeline_stage &&
-      !State.filters.lead_source && !State.filters.product_type;
+      !State.filters.lead_source && !State.filters.product_type && !State.filters.temperature;
 
     const cached = isDefaultFilter ? OverviewCache.get() : null;
     const updatedAtEl = document.getElementById('overview-updated-at');
@@ -532,6 +556,7 @@ const OverviewPage = {
     if (State.filters.pipeline_stage) payload.pipeline_stage = State.filters.pipeline_stage;
     if (State.filters.lead_source) payload.lead_source = State.filters.lead_source;
     if (State.filters.product_type) payload.product_type = State.filters.product_type;
+    if (State.filters.temperature) payload.temperature = State.filters.temperature;
 
     const trendPayload = Api.withBusiness({ granularity: State.trendGranularity });
     if (State.filters.sales_uid) trendPayload.sales_uid = State.filters.sales_uid;
@@ -578,6 +603,7 @@ const OverviewPage = {
     document.getElementById('kpi-won-value').textContent = Utils.formatCurrency(kpi.won_value);
     document.getElementById('kpi-win-rate').textContent = kpi.win_rate_percent + '%';
     document.getElementById('kpi-total-activities').textContent = kpi.total_activities_period;
+    document.getElementById('kpi-hot-leads').textContent = (State.overviewData && State.overviewData.temperature_breakdown && State.overviewData.temperature_breakdown.Hot) || 0;
   },
 
   renderWidgets(data) {
@@ -622,6 +648,7 @@ const OverviewPage = {
     this.renderLostReasonsPie(State.overviewData.lost_reasons);
     this.renderLeadSourcePie(State.overviewData.lead_source_breakdown || {});
     this.renderProductTypePie(State.overviewData.product_breakdown || {});
+    this.renderTemperatureChart(State.overviewData.temperature_breakdown || {});
   },
 
   destroyChart(key) { if (State.charts[key]) { State.charts[key].destroy(); delete State.charts[key]; } },
@@ -736,6 +763,26 @@ const OverviewPage = {
     });
   },
 
+  // Suhu Leads Aktif — donut Hot/Warm/Cold (+ "Belum Diisi" kalau ada
+  // project aktif yang belum pernah dicatat suhunya). Urutan tetap
+  // Hot->Warm->Cold->Belum Diisi walau salah satu angkanya 0, supaya
+  // warna & posisi legend konsisten tiap kali dilihat.
+  renderTemperatureChart(tempBreakdown) {
+    this.destroyChart('temperature');
+    const order = ['Hot', 'Warm', 'Cold', 'Belum Diisi'];
+    const colors = { Hot: '#DC2626', Warm: '#F59E0B', Cold: '#0EA5E9', 'Belum Diisi': '#64748B' };
+    const labels = order.filter((k) => tempBreakdown[k]);
+    const ctx = document.getElementById('chart-temperature').getContext('2d');
+    State.charts.temperature = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: labels.map((l) => tempBreakdown[l]), backgroundColor: labels.map((l) => colors[l]) }]
+      },
+      options: { plugins: { legend: { position: 'bottom', labels: { color: Utils.chartTextColor() } } } }
+    });
+  },
+
   initGranularityToggle() {
     document.getElementById('trend-granularity-chips').addEventListener('click', async (e) => {
       const chip = e.target.closest('.chip');
@@ -772,6 +819,7 @@ const ExplorerPage = {
     if (State.filters.date_to) payload.date_to = State.filters.date_to;
     if (State.filters.sales_uid) payload.sales_uid = State.filters.sales_uid;
     if (State.filters.pipeline_stage) payload.pipeline_stage = State.filters.pipeline_stage;
+    if (State.filters.temperature) payload.temperature = State.filters.temperature;
 
     const result = await Api.call('readProjectExplorer', payload);
 
@@ -795,12 +843,14 @@ const ExplorerPage = {
       const valueText = p.estimated_value ? Utils.formatCurrency(p.estimated_value) : '-';
       const leadSource = p.lead_source || '-';
       const ageText = (p.lead_age_days === null || p.lead_age_days === undefined) ? '-' : p.lead_age_days + ' hari';
+      const tempBadge = p.current_temperature ? Utils.temperatureBadge(p.current_temperature) : '-';
       return '<tr data-project-id="' + p.project_id + '" data-project-name="' + p.project_name + '" data-project-stage="' + p.pipeline_stage + '" data-project-value="' + valueText + '" data-project-address="' + (p.location_address || '-') + '" data-project-lead-source="' + leadSource + '">' +
         '<td>' + (index + 1) + '</td>' +
         '<td>' + p.project_name + '</td>' +
         '<td>' + p.sales_name + '</td>' +
         '<td>' + p.pipeline_stage + '</td>' +
         '<td>' + leadSource + '</td>' +
+        '<td>' + tempBadge + '</td>' +
         '<td>' + valueText + '</td>' +
         '<td>' + (p.location_address || '-') + '</td>' +
         '<td>' + ageText + '</td>' +
@@ -887,7 +937,7 @@ const DetailModal = {
 
     timelineEl.innerHTML = activities.map((a) =>
       '<div class="timeline-item">' +
-      '<p class="timeline-date">' + Utils.formatShortDate(a.timestamp) + ' · ' + a.activity_type + '</p>' +
+      '<p class="timeline-date">' + Utils.formatShortDate(a.timestamp) + ' · ' + a.activity_type + (a.temperature ? ' · ' + Utils.temperatureBadge(a.temperature) : '') + '</p>' +
       '<p class="timeline-note">' + a.activity_note + '</p>' +
       '</div>'
     ).join('');
@@ -1023,6 +1073,7 @@ const LogPage = {
     if (State.filters.date_from) payload.date_from = State.filters.date_from;
     if (State.filters.date_to) payload.date_to = State.filters.date_to;
     if (State.filters.sales_uid) payload.sales_uid = State.filters.sales_uid;
+    if (State.filters.temperature) payload.temperature = State.filters.temperature;
     const activityType = document.getElementById('log-activity-type').value;
     if (activityType) payload.activity_type = activityType;
 
@@ -1054,6 +1105,7 @@ const LogPage = {
       '<td>' + a.activity_type + '</td>' +
       '<td>' + (a.note || '-') + '</td>' +
       '<td>' + (a.pipeline_stage || '-') + '</td>' +
+      '<td>' + (a.temperature ? Utils.temperatureBadge(a.temperature) : '-') + '</td>' +
       '</tr>'
     ).join('');
   },

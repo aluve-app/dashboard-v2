@@ -6,7 +6,11 @@
   <title>SVS Manager Dashboard</title>
   <meta name="description" content="Dashboard Manager — ringkasan performa tim sales & admin console SVS" />
 
-  <link rel="stylesheet" href="./style.css" />
+  <!-- CACHE-BUST: angka di belakang ?v= WAJIB dinaikkan setiap kali
+       style.css/config.js/script.js berubah. Ini supaya browser (terutama
+       HP) tidak terus memakai file lama dari cache — user tidak perlu
+       hapus cache manual lagi setelah update di-upload ke GitHub. -->
+  <link rel="stylesheet" href="./style.css?v=20260819" />
 
   <!-- Chart.js & SheetJS — dashboard ini didesain untuk laptop kantor
        dengan koneksi stabil, jadi CDN saja (tidak perlu self-host). -->
@@ -129,6 +133,15 @@
           <option value="">Semua Produk</option>
         </select>
       </div>
+      <div class="filter-field">
+        <label for="filter-temperature">Suhu Lead</label>
+        <select id="filter-temperature" class="form-select">
+          <option value="">Semua Suhu</option>
+          <option value="Hot">🔥 Hot</option>
+          <option value="Warm">🌤️ Warm</option>
+          <option value="Cold">❄️ Cold</option>
+        </select>
+      </div>
       <button id="btn-apply-filter" class="primary-button ripple" type="button">Terapkan Filter</button>
       <button id="btn-reset-filter" class="secondary-button ripple" type="button">Reset</button>
     </div>
@@ -173,6 +186,11 @@
               <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <span class="kpi-label">Total Aktivitas (Periode)</span>
               <span id="kpi-total-activities" class="kpi-value">0</span>
+            </div>
+            <div class="kpi-card glow-danger" draggable="true" data-card-id="kpi-hot-leads">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
+              <span class="kpi-label">🔥 Leads Hot Aktif</span>
+              <span id="kpi-hot-leads" class="kpi-value">0</span>
             </div>
           </div>
 
@@ -224,6 +242,12 @@
               <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
               <h3 class="chart-title">Jenis Produk</h3>
               <canvas id="chart-product-type"></canvas>
+            </div>
+
+            <div class="chart-card" draggable="true" data-card-id="chart-temperature-card">
+              <span class="drag-handle" title="Geser untuk ubah urutan">⠿</span>
+              <h3 class="chart-title">Suhu Leads Aktif</h3>
+              <canvas id="chart-temperature"></canvas>
             </div>
           </div>
 
@@ -277,6 +301,7 @@
                   <th>Sales</th>
                   <th>Stage</th>
                   <th>Sumber Leads</th>
+                  <th>Suhu</th>
                   <th>Nilai</th>
                   <th>Lokasi</th>
                   <th>Usia Leads</th>
@@ -392,6 +417,7 @@
                   <th>Jenis</th>
                   <th>Catatan</th>
                   <th>Status Saat Itu</th>
+                  <th>Suhu</th>
                 </tr>
               </thead>
               <tbody id="log-table-body"></tbody>
@@ -678,7 +704,7 @@
 
   </div>
 
-  <script src="./config.js"></script>
-  <script src="./script.js"></script>
+  <script src="./config.js?v=20260819"></script>
+  <script src="./script.js?v=20260819"></script>
 </body>
 </html>
